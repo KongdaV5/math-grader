@@ -1,29 +1,12 @@
-# HANDOFF_LATEST.md
+# 最新交接
 
-项目尚未开始 P0-W1 实现。
+- 工作包：**P0-W1 Benchmark Foundation**
+- 状态：**PASS**
+- 实现提交：`15ae9ea0f125b744b44edfad06f629d403292746`
+- 交接文件：[P0-W1-2026-09-25.md](handoffs/P0-W1-2026-09-25.md)
 
-## 当前任务
-P0-W1 Benchmark Foundation
+本轮仅完成 Benchmark Foundation；未接入或实测 OCR/VLM，也未启动 P0-W2。定向测试、空数据集 CLI smoke、忽略规则和提交前差异检查均通过。完整文件列表、测试记录、已知限制和下一 Gate 见本次 handoff。
 
-## 下一执行者
-Codex GPT-6 Luna
+## 下一工作包
 
-## 开始前必须阅读
-1. REFERENCE.md
-2. DECISIONS.md
-3. STATUS.md
-4. TEST_STATUS.md
-5. TASK_BOARD.md
-6. `docs/prompts/P0-W1-LUNA.md`
-
-## 明确不要做
-- 不开发完整 UI
-- 不做 Capture Bridge
-- 不开始 P0-W2
-- 不下载/接入全部真实模型
-- 不使用 Sol
-- 不重写 REFERENCE
-- 不把 27B 变成产品依赖
-
-## 结束要求
-更新 STATUS、TEST_STATUS，新增本次 handoff，更新 HANDOFF_LATEST，提供最终 commit SHA，并标记 PASS / PARTIAL / BLOCKED。
+P0-W2 Model Benchmark 是后续候选工作。本轮在 P0-W1 结束后停止，不自动开始下一阶段。
