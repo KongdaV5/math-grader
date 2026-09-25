@@ -1,10 +1,10 @@
 # TASK_BOARD.md
 
-## NOW — P0-W1 Benchmark Foundation
+## DONE — P0-W1 Benchmark Foundation
 
 - Owner：Codex GPT-6 Luna
 - Reviewer：DeepSeek V4.1 Flash
-- Status：READY
+- Status：PASS
 
 交付：schema、runner、metrics、failure archive、pytest、report template、docs update。
 
@@ -12,6 +12,7 @@
 
 - Preferred Owner：Luna；若跨模型接入/性能调度明显复杂，可升级 Terra
 - Reviewer：DeepSeek V4.1 Flash
+- Status：NOT STARTED；本次工作包结束后停止，等待单独启动
 
 内容：PP-OCRv6 Small/Medium、Qwen3-VL 4B/8B fallback、Formula 候选、真实样本、延迟/内存/准确率。
 

@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://math-grader.local/schemas/ground-truth-0.1.json",
+  "title": "Math Grader Ground Truth Record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "sample_id",
+    "page_id",
+    "question_id",
+    "answer_type",
+    "student_answer_gt",
+    "correct_answer",
+    "has_correction",
+    "image_quality"
+  ],
+  "properties": {
+    "schema_version": {"const": "0.1"},
+    "sample_id": {"type": "string", "minLength": 1},
+    "image_ref": {"type": "string", "minLength": 1},
+    "image": {"type": "string", "minLength": 1},
+    "student_id": {"type": ["string", "null"], "minLength": 1},
+    "page_id": {"type": "string", "minLength": 1},
+    "question_id": {"type": "string", "minLength": 1},
+    "answer_type": {
+      "type": "string",
+      "enum": [
+        "integer",
+        "decimal",
+        "choice",
+        "boolean",
+        "comparison_symbol",
+        "fraction",
+        "formula",
+        "short_text",
+        "sequence",
+        "multi_blank"
+      ]
+    },
+    "student_answer_gt": {"type": ["string", "null"]},
+    "correct_answer": {"type": "string", "minLength": 1, "pattern": "\\S"},
+    "has_correction": {"type": "boolean"},
+    "image_quality": {
+      "type": "string",
+      "enum": ["excellent", "good", "normal", "poor", "unusable", "unknown"]
+    },
+    "metadata": {"type": "object"}
+  },
+  "anyOf": [{"required": ["image_ref"]}, {"required": ["image"]}]
+}

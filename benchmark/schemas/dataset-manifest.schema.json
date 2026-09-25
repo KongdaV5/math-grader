@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://math-grader.local/schemas/dataset-manifest-0.1.json",
+  "title": "Math Grader Dataset Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "dataset_name", "samples_source", "ground_truth"],
+  "properties": {
+    "schema_version": {"const": "0.1"},
+    "dataset_name": {"type": "string", "minLength": 1},
+    "description": {"type": "string"},
+    "samples_source": {"type": "string", "minLength": 1},
+    "ground_truth": {"type": "string", "minLength": 1},
+    "notes": {"type": "string"},
+    "metadata": {"type": "object"}
+  }
+}

@@ -1,8 +1,8 @@
 {
   "schema_version": "0.1",
-  "dataset_name": "p0-real-homework",
-  "description": "P0 benchmark dataset manifest",
-  "samples_source": "benchmark/dataset/raw",
-  "ground_truth": "benchmark/dataset/ground_truth/ground_truth.jsonl",
-  "notes": "Do not include personally identifying student names unless strictly necessary."
+  "dataset_name": "empty-smoke-dataset",
+  "description": "Empty example dataset for exercising the P0-W1 runner without student data.",
+  "samples_source": "raw",
+  "ground_truth": "ground_truth/ground_truth.example.jsonl",
+  "notes": "No real student images or labels are included in this smoke example."
 }

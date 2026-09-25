@@ -2,9 +2,9 @@
 
 ## 当前阶段
 
-**当前只执行：P0-W1 Benchmark Foundation**
+**P0-W1 Benchmark Foundation 已完成并通过本地 Gate。**
 
-不要开始完整桌面客户端、Capture Bridge、学生数据库完整实现、模板管理 UI、学习趋势 UI 或生产打包。
+下一工作包是 P0-W2 Model Benchmark；它尚未开始。本次交接结束后停止，不自动进入 P0-W2。不要开始完整桌面客户端、Capture Bridge、学生数据库完整实现、模板管理 UI、学习趋势 UI 或生产打包。
 
 ## 开工顺序
 

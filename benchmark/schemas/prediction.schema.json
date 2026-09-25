@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://math-grader.local/schemas/prediction-0.1.json",
+  "title": "Math Grader Prediction / RecognitionRun Record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "sample_id",
+    "model_name",
+    "model_version",
+    "raw_prediction",
+    "normalized_prediction",
+    "model_confidence",
+    "decision_status",
+    "decision_confidence",
+    "latency_ms",
+    "error"
+  ],
+  "properties": {
+    "schema_version": {"const": "0.1"},
+    "run_id": {"type": "string", "minLength": 1},
+    "sample_id": {"type": "string", "minLength": 1},
+    "model_name": {"type": "string", "minLength": 1},
+    "model_version": {"type": "string", "minLength": 1},
+    "raw_prediction": {"type": ["string", "null"]},
+    "normalized_prediction": {"type": ["string", "null"]},
+    "model_confidence": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+    "decision_status": {"type": "string", "enum": ["AUTO_ACCEPT", "AUTO_WRONG", "REVIEW_REQUIRED"]},
+    "decision_confidence": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+    "latency_ms": {"type": ["number", "null"], "minimum": 0},
+    "error": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["code", "message"],
+          "properties": {
+            "code": {"type": "string", "minLength": 1},
+            "message": {"type": "string", "minLength": 1}
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"error": {"type": "object"}}, "required": ["error"]},
+      "then": {
+        "properties": {
+          "normalized_prediction": {"type": "null"},
+          "decision_status": {"const": "REVIEW_REQUIRED"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"decision_status": {"enum": ["AUTO_ACCEPT", "AUTO_WRONG"]}},
+        "required": ["decision_status"]
+      },
+      "then": {"properties": {"normalized_prediction": {"type": "string"}}}
+    }
+  ]
+}
