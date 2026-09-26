@@ -55,6 +55,48 @@ export type Submission = {
   results: RecognitionResult[];
 };
 
+export type CaptureAddress = { ip: string; interface: string };
+export type CapturePage = {
+  id: string;
+  page_index: number;
+  original_filename: string | null;
+  mime_type: string | null;
+  byte_size: number;
+  uploaded_at: string | null;
+};
+export type CaptureCurrent = {
+  submission_id: string;
+  student_id: string;
+  student_name: string;
+  student_no: string;
+  status: string;
+  page_count: number;
+  pages: CapturePage[];
+};
+export type CaptureDashboard = {
+  session_id: string;
+  status: string;
+  created_at: string;
+  expires_at: string;
+  class_name: string;
+  assignment_name: string;
+  current: CaptureCurrent | null;
+  complete: boolean;
+  finished_count: number;
+  total_students: number;
+  last_finished: { name: string; status: string; finished_at: string } | null;
+  processing: Array<{ student_name: string; status: string; page_count: number; job_status: string | null }>;
+};
+export type CaptureSessionSnapshot = {
+  status: "ACTIVE" | "ENDED" | "EXPIRED" | "INACTIVE";
+  session: { id: string; assignment_id: string; status: string; created_at: string; expires_at: string } | null;
+  capture?: CaptureDashboard;
+  addresses: CaptureAddress[];
+  capture_url: string | null;
+  host: string | null;
+  port: number | null;
+};
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
@@ -89,6 +131,11 @@ export const api = {
     request<{ page: PageRecord; submission: Submission }>(`/api/submissions/${id}/pages`, { method: "POST", body: JSON.stringify({ filename, image_base64 }) }),
   finishSubmission: (id: string) => request<Submission>(`/api/submissions/${id}/finish`, { method: "POST", body: "{}" }),
   submission: (id: string) => request<Submission>(`/api/submissions/${id}`),
+  captureSession: () => request<CaptureSessionSnapshot>("/api/capture/session"),
+  startCaptureSession: (assignment_id: string, host: string) =>
+    request<CaptureSessionSnapshot>("/api/capture/session/start", { method: "POST", body: JSON.stringify({ assignment_id, host }) }),
+  endCaptureSession: () =>
+    request<CaptureSessionSnapshot>("/api/capture/session/end", { method: "POST", body: "{}" }),
 };
 
 export function fileAsBase64(file: File): Promise<string> {

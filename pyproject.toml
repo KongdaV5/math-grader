@@ -19,7 +19,7 @@ include-package-data = true
 
 [tool.setuptools.package-data]
 benchmark = ["schemas/*.json", "reports/*.md"]
-local_service = ["migrations/*.sql", "config/*.json"]
+local_service = ["migrations/*.sql", "config/*.json", "capture_page.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

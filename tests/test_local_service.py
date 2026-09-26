@@ -1,3 +1,4 @@
+import base64
 import json
 import time
 from datetime import date
@@ -14,6 +15,10 @@ from local_service.recognition import ProviderRegistry, RecognitionResult
 from local_service.service import MathGraderService, ProcessingError, ValidationError
 from local_service.state_machine import InvalidTransition, transition
 from local_service.worker import JobWorker
+
+PNG_IMAGE = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADUlEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC"
+)
 
 
 def make_service(tmp_path, config=None, registry=None):
@@ -49,7 +54,7 @@ def test_sqlite_initializes_schema_and_class_student_assignment_path(tmp_path):
     service = make_service(tmp_path)
 
     with service.database.connection() as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 1
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 2
         tables = {
             row[0]
             for row in connection.execute(
@@ -84,11 +89,13 @@ def test_uploaded_test_image_is_stored_inside_local_data_directory(tmp_path):
     service = make_service(tmp_path)
     _, submission = make_submission(service, "image", page_count=0)
 
-    page = service.add_uploaded_page(submission["id"], "worksheet.png", b"local-fixture-image")
+    page = service.add_uploaded_page(submission["id"], "worksheet.png", PNG_IMAGE)
 
     stored_path = service.data_dir / page["source_ref"]
-    assert stored_path.read_bytes() == b"local-fixture-image"
+    assert stored_path.read_bytes() == PNG_IMAGE
     assert page["page_index"] == 1
+    assert page["mime_type"] == "image/png"
+    assert page["byte_size"] == len(PNG_IMAGE)
     assert service.get_submission(submission["id"])["page_count"] == 1
 
 

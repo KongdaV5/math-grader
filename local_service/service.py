@@ -1,7 +1,12 @@
 import base64
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
+import hashlib
+import hmac
 import json
+import os
 from pathlib import Path
+import re
+import secrets
 import sqlite3
 import uuid
 
@@ -22,6 +27,29 @@ class ProcessingError(RuntimeError):
     pass
 
 
+class Unauthorized(Exception):
+    pass
+
+
+class PayloadTooLarge(ValidationError):
+    pass
+
+
+class UnsupportedMediaType(ValidationError):
+    pass
+
+
+MAX_IMAGE_BYTES = 10 * 1024 * 1024
+IMAGE_EXTENSIONS = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/heic": ".heic",
+    "image/heif": ".heif",
+    "image/avif": ".avif",
+}
+
+
 def utc_now():
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -39,6 +67,7 @@ class MathGraderService:
         self.pages_dir.mkdir(parents=True, exist_ok=True)
         self.gateway = RecognitionGateway.from_file(recognition_config, registry=registry)
         self.recover_interrupted_jobs()
+        self.expire_orphaned_capture_sessions()
 
     def health(self):
         with self.database.connection() as connection:
@@ -189,24 +218,171 @@ class MathGraderService:
         )
 
     def add_uploaded_page(self, submission_id, filename, content):
-        suffix = Path(filename or "").suffix.lower()
-        if suffix not in {".jpg", ".jpeg", ".png", ".webp", ".heic"}:
-            raise ValidationError("image filename must end in jpg, jpeg, png, webp, or heic")
-        if not content or len(content) > 10 * 1024 * 1024:
-            raise ValidationError("image must be between 1 byte and 10 MB")
-        submission = self.get_submission(submission_id)
-        if submission["status"] != "CAPTURING":
-            raise InvalidTransition("Pages can only be added while CAPTURING")
-        disk_name = new_id() + suffix
-        destination = self.pages_dir / disk_name
-        destination.write_bytes(content)
-        source_ref = "pages/" + disk_name
-        try:
-            page = self.add_page(submission_id, source_ref)
-        except Exception:
-            destination.unlink(missing_ok=True)
-            raise
+        mime_type = self._validated_image_mime(content, None)
+        page, _ = self._persist_uploaded_page(submission_id, filename, mime_type, content)
         return page
+
+    def add_capture_uploaded_page(
+        self, token, filename, mime_type, content, client_upload_id, expected_submission_id
+    ):
+        mime_type = self._validated_image_mime(content, mime_type)
+        try:
+            parsed_upload_id = str(uuid.UUID(client_upload_id))
+        except (AttributeError, TypeError, ValueError) as error:
+            raise ValidationError("Idempotency-Key must be a UUID") from error
+        if parsed_upload_id != client_upload_id:
+            raise ValidationError("Idempotency-Key must be a canonical UUID")
+        session = self.authorized_capture_session(token)
+        if session["current_submission_id"] is None:
+            raise InvalidTransition("This Capture Session has no remaining students")
+        if session["current_submission_id"] != expected_submission_id:
+            raise InvalidTransition("Upload does not belong to the current student")
+        page, duplicate = self._persist_uploaded_page(
+            session["current_submission_id"], filename, mime_type, content,
+            client_upload_id=client_upload_id, token=token,
+            expected_submission_id=expected_submission_id,
+        )
+        return {"page": page, "idempotent": duplicate}
+
+    def _persist_uploaded_page(self, submission_id, filename, mime_type, content,
+                               client_upload_id=None, token=None, expected_submission_id=None):
+        if not isinstance(content, bytes) or not content:
+            raise ValidationError("Image must not be empty")
+        if len(content) > MAX_IMAGE_BYTES:
+            raise PayloadTooLarge("Image exceeds 10 MB")
+        safe_filename = self._safe_original_filename(filename)
+        digest = hashlib.sha256(content).hexdigest()
+        page_id = new_id()
+        extension = IMAGE_EXTENSIONS[mime_type]
+        disk_name = page_id + extension
+        temporary = self.pages_dir / ("." + page_id + ".upload")
+        destination = self.pages_dir / disk_name
+        created_path = False
+        item = None
+        idempotent = False
+        try:
+            with self.database.connection() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                if token is not None:
+                    session = self._require_capture_session(connection, token)
+                    if (session["current_submission_id"] != submission_id or
+                            (expected_submission_id is not None and
+                             expected_submission_id != session["current_submission_id"])):
+                        raise InvalidTransition("Upload does not belong to the current student")
+                submission = self._require(connection, "submissions", submission_id)
+                if submission["status"] != "CAPTURING":
+                    raise InvalidTransition("Pages can only be added while CAPTURING")
+
+                if client_upload_id is not None:
+                    existing = connection.execute(
+                        "SELECT * FROM submission_pages WHERE client_upload_id = ?",
+                        (client_upload_id,),
+                    ).fetchone()
+                    if existing is not None:
+                        if (existing["submission_id"] != submission_id or
+                                existing["content_sha256"] != digest):
+                            raise ValidationError("Idempotency-Key was already used for another upload")
+                        item = self._row(existing)
+                        idempotent = True
+                    else:
+                        item = None
+                else:
+                    item = None
+
+                if item is None:
+                    page_index = connection.execute(
+                        "SELECT COALESCE(MAX(page_index), 0) FROM submission_pages WHERE submission_id = ?",
+                        (submission_id,),
+                    ).fetchone()[0] + 1
+                    uploaded_at = utc_now()
+                    with temporary.open("xb") as image_file:
+                        image_file.write(content)
+                        image_file.flush()
+                        os.fsync(image_file.fileno())
+                    os.replace(str(temporary), str(destination))
+                    created_path = True
+                    item = {
+                        "id": page_id,
+                        "submission_id": submission_id,
+                        "page_index": page_index,
+                        "source_ref": "pages/" + disk_name,
+                        "created_at": uploaded_at,
+                        "original_filename": safe_filename,
+                        "mime_type": mime_type,
+                        "byte_size": len(content),
+                        "uploaded_at": uploaded_at,
+                        "content_sha256": digest,
+                        "client_upload_id": client_upload_id,
+                    }
+                    connection.execute(
+                        """INSERT INTO submission_pages
+                           (id, submission_id, page_index, source_ref, created_at,
+                            original_filename, mime_type, byte_size, uploaded_at,
+                            content_sha256, client_upload_id)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (
+                            item["id"], item["submission_id"], item["page_index"],
+                            item["source_ref"], item["created_at"], item["original_filename"],
+                            item["mime_type"], item["byte_size"], item["uploaded_at"],
+                            item["content_sha256"], item["client_upload_id"],
+                        ),
+                    )
+                    connection.execute(
+                        "UPDATE submissions SET page_count = ? WHERE id = ?",
+                        (page_index, submission_id),
+                    )
+        except Exception:
+            temporary.unlink(missing_ok=True)
+            if created_path:
+                destination.unlink(missing_ok=True)
+            raise
+        return item, idempotent
+
+    @classmethod
+    def _validated_image_mime(cls, content, declared_mime):
+        if not isinstance(content, bytes) or not content:
+            raise ValidationError("Image must not be empty")
+        if len(content) > MAX_IMAGE_BYTES:
+            raise PayloadTooLarge("Image exceeds 10 MB")
+        actual = cls._sniff_image_mime(content)
+        if actual is None:
+            raise UnsupportedMediaType("Only JPEG, PNG, WebP, HEIC, HEIF, or AVIF images are accepted")
+        if declared_mime is None or not str(declared_mime).strip():
+            return actual
+        declared = str(declared_mime).split(";", 1)[0].strip().lower()
+        if declared not in IMAGE_EXTENSIONS:
+            raise UnsupportedMediaType("Unsupported image MIME type")
+        compatible = declared == actual or {declared, actual} <= {"image/heic", "image/heif"}
+        if not compatible:
+            raise UnsupportedMediaType("MIME type does not match the uploaded image")
+        return actual
+
+    @staticmethod
+    def _sniff_image_mime(content):
+        if content.startswith(b"\xff\xd8\xff"):
+            return "image/jpeg"
+        if content.startswith(b"\x89PNG\r\n\x1a\n"):
+            return "image/png"
+        if len(content) >= 12 and content[:4] == b"RIFF" and content[8:12] == b"WEBP":
+            return "image/webp"
+        if len(content) >= 12 and content[4:8] == b"ftyp":
+            brand = content[8:12].lower()
+            if brand in {b"heic", b"heix", b"hevc", b"hevx"}:
+                return "image/heic"
+            if brand in {b"mif1", b"msf1"}:
+                return "image/heif"
+            if brand in {b"avif", b"avis"}:
+                return "image/avif"
+        return None
+
+    @staticmethod
+    def _safe_original_filename(filename):
+        if not isinstance(filename, str):
+            return None
+        leaf = filename.replace("\\", "/").split("/")[-1]
+        leaf = "".join(character for character in leaf if ord(character) >= 32 and ord(character) != 127)
+        leaf = leaf.strip()[:255]
+        return leaf or None
 
     def finish_submission(self, submission_id):
         with self.database.connection() as connection:
@@ -228,6 +404,390 @@ class MathGraderService:
                 (new_id(), submission_id, now),
             )
         return self.get_submission(submission_id)
+
+    def expire_orphaned_capture_sessions(self):
+        """A process restart loses the in-memory token and LAN listener, so old sessions expire."""
+        now = utc_now()
+        with self.database.connection() as connection:
+            connection.execute(
+                """UPDATE capture_sessions SET status = 'EXPIRED', ended_at = ?
+                   WHERE status = 'ACTIVE'""",
+                (now,),
+            )
+
+    def expire_stale_capture_sessions(self):
+        now = utc_now()
+        with self.database.connection() as connection:
+            connection.execute(
+                """UPDATE capture_sessions SET status = 'EXPIRED', ended_at = ?
+                   WHERE status = 'ACTIVE' AND expires_at <= ?""",
+                (now, now),
+            )
+
+    def start_capture_session(self, assignment_id, expires_in_seconds=8 * 60 * 60):
+        if not isinstance(expires_in_seconds, int) or not 1 <= expires_in_seconds <= 24 * 60 * 60:
+            raise ValidationError("Capture Session lifetime must be between 1 second and 24 hours")
+        token = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(token.encode("ascii")).hexdigest()
+        session_id = new_id()
+        now = utc_now()
+        expires_at = (datetime.now(timezone.utc) + timedelta(seconds=expires_in_seconds)).isoformat(
+            timespec="seconds"
+        )
+        try:
+            with self.database.connection() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                connection.execute(
+                    """UPDATE capture_sessions SET status = 'EXPIRED', ended_at = ?
+                       WHERE status = 'ACTIVE' AND expires_at <= ?""",
+                    (now, now),
+                )
+                active = connection.execute(
+                    "SELECT id FROM capture_sessions WHERE status = 'ACTIVE' LIMIT 1"
+                ).fetchone()
+                if active is not None:
+                    raise ValidationError("A Capture Session is already active")
+                assignment = self._require(connection, "assignments", assignment_id)
+                if assignment["status"] != "ACTIVE":
+                    raise ValidationError("Assignment is closed")
+                selected = self._next_capture_submission_locked(connection, assignment_id, now)
+                if selected is None:
+                    raise ValidationError("No active students remain to capture for this Assignment")
+                student, submission = selected
+                connection.execute(
+                    """INSERT INTO capture_sessions
+                       (id, assignment_id, token_hash, created_at, expires_at, status,
+                        current_student_id, current_submission_id)
+                       VALUES (?, ?, ?, ?, ?, 'ACTIVE', ?, ?)""",
+                    (
+                        session_id, assignment_id, token_hash, now, expires_at,
+                        student["id"], submission["id"],
+                    ),
+                )
+                connection.execute(
+                    """INSERT INTO capture_session_submissions
+                       (session_id, submission_id, student_id, started_at)
+                       VALUES (?, ?, ?, ?)""",
+                    (session_id, submission["id"], student["id"], now),
+                )
+        except sqlite3.IntegrityError as error:
+            raise ValidationError("A Capture Session is already active") from error
+        return {
+            "session_id": session_id,
+            "assignment_id": assignment_id,
+            "token": token,
+            "created_at": now,
+            "expires_at": expires_at,
+            "current_student_id": student["id"],
+            "current_submission_id": submission["id"],
+        }
+
+    def end_capture_session(self, session_id=None):
+        now = utc_now()
+        with self.database.connection() as connection:
+            if session_id is None:
+                row = connection.execute(
+                    "SELECT id FROM capture_sessions WHERE status = 'ACTIVE' ORDER BY created_at DESC LIMIT 1"
+                ).fetchone()
+                if row is None:
+                    return None
+                session_id = row["id"]
+            connection.execute(
+                """UPDATE capture_sessions SET status = 'ENDED', ended_at = ?
+                   WHERE id = ? AND status = 'ACTIVE'""",
+                (now, session_id),
+            )
+            row = connection.execute("SELECT * FROM capture_sessions WHERE id = ?", (session_id,)).fetchone()
+        return self._row(row) if row else None
+
+    def authorized_capture_session(self, token):
+        with self.database.connection() as connection:
+            return self._require_capture_session(connection, token)
+
+    def validate_capture_upload_target(self, token, submission_id):
+        with self.database.connection() as connection:
+            session = self._require_capture_session(connection, token)
+            if not submission_id or session["current_submission_id"] != submission_id:
+                raise InvalidTransition("Upload does not belong to the current student")
+
+    def capture_session_is_active(self, session_id):
+        self.expire_stale_capture_sessions()
+        with self.database.connection() as connection:
+            row = connection.execute(
+                "SELECT status FROM capture_sessions WHERE id = ?", (session_id,)
+            ).fetchone()
+        return bool(row and row["status"] == "ACTIVE")
+
+    def capture_admin_state(self):
+        self.expire_stale_capture_sessions()
+        with self.database.connection() as connection:
+            session = connection.execute(
+                "SELECT * FROM capture_sessions ORDER BY created_at DESC LIMIT 1"
+            ).fetchone()
+            if session is None:
+                return {"status": "INACTIVE", "session": None}
+            if session["status"] != "ACTIVE":
+                return {"status": session["status"], "session": self._capture_session_summary(session)}
+            return {
+                "status": "ACTIVE",
+                "session": self._capture_session_summary(session),
+                "capture": self._capture_state_locked(connection, session),
+            }
+
+    def current_capture(self, token):
+        with self.database.connection() as connection:
+            session = self._require_capture_session(connection, token)
+            return self._capture_state_locked(connection, session)
+
+    def finish_capture_submission(self, token, submission_id):
+        now = utc_now()
+        already_finished = False
+        with self.database.connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            session = self._require_capture_session(connection, token)
+            mapping = connection.execute(
+                """SELECT * FROM capture_session_submissions
+                   WHERE session_id = ? AND submission_id = ?""",
+                (session["id"], submission_id),
+            ).fetchone()
+            if mapping is None:
+                raise NotFound("Submission is not part of this Capture Session")
+            if mapping["finished_at"] is not None:
+                already_finished = True
+            else:
+                if session["current_submission_id"] != submission_id:
+                    raise InvalidTransition("Only the current student's Submission can be finished")
+                submission = self._require(connection, "submissions", submission_id)
+                if submission["status"] != "CAPTURING":
+                    raise InvalidTransition("Submission is no longer CAPTURING")
+                if submission["page_count"] < 1:
+                    raise ValidationError("Submission requires at least one page before finishing")
+                transition(connection, submission_id, "READY", now)
+                transition(connection, submission_id, "QUEUED", now)
+                connection.execute(
+                    """INSERT INTO jobs (id, submission_id, status, created_at)
+                       VALUES (?, ?, 'QUEUED', ?)""",
+                    (new_id(), submission_id, now),
+                )
+                connection.execute(
+                    """UPDATE capture_session_submissions SET finished_at = ?
+                       WHERE session_id = ? AND submission_id = ?""",
+                    (now, session["id"], submission_id),
+                )
+                selected = self._next_capture_submission_locked(
+                    connection, session["assignment_id"], now
+                )
+                if selected is None:
+                    connection.execute(
+                        """UPDATE capture_sessions SET current_student_id = NULL,
+                           current_submission_id = NULL WHERE id = ?""",
+                        (session["id"],),
+                    )
+                else:
+                    student, next_submission = selected
+                    connection.execute(
+                        """INSERT INTO capture_session_submissions
+                           (session_id, submission_id, student_id, started_at)
+                           VALUES (?, ?, ?, ?)""",
+                        (session["id"], next_submission["id"], student["id"], now),
+                    )
+                    connection.execute(
+                        """UPDATE capture_sessions SET current_student_id = ?,
+                           current_submission_id = ? WHERE id = ?""",
+                        (student["id"], next_submission["id"], session["id"]),
+                    )
+        return {
+            "submission": self.get_submission(submission_id),
+            "current": self.current_capture(token),
+            "already_finished": already_finished,
+        }
+
+    def delete_capture_page(self, token, page_id):
+        source_path = None
+        with self.database.connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            session = self._require_capture_session(connection, token)
+            if session["current_submission_id"] is None:
+                raise InvalidTransition("This Capture Session has no current student")
+            page = connection.execute(
+                "SELECT * FROM submission_pages WHERE id = ? AND submission_id = ?",
+                (page_id, session["current_submission_id"]),
+            ).fetchone()
+            if page is None:
+                raise NotFound("Page not found for the current student")
+            source_path = self._stored_page_path(page["source_ref"])
+            connection.execute("DELETE FROM submission_pages WHERE id = ?", (page_id,))
+            connection.execute(
+                """UPDATE submission_pages SET page_index = page_index + 1000000
+                   WHERE submission_id = ? AND page_index > ?""",
+                (session["current_submission_id"], page["page_index"]),
+            )
+            connection.execute(
+                """UPDATE submission_pages SET page_index = page_index - 1000001
+                   WHERE submission_id = ? AND page_index > 1000000""",
+                (session["current_submission_id"],),
+            )
+            remaining = connection.execute(
+                "SELECT COUNT(*) FROM submission_pages WHERE submission_id = ?",
+                (session["current_submission_id"],),
+            ).fetchone()[0]
+            connection.execute(
+                "UPDATE submissions SET page_count = ? WHERE id = ?",
+                (remaining, session["current_submission_id"]),
+            )
+        if source_path is not None:
+            source_path.unlink(missing_ok=True)
+        return self.current_capture(token)
+
+    def capture_page_image(self, token, page_id):
+        with self.database.connection() as connection:
+            session = self._require_capture_session(connection, token)
+            if session["current_submission_id"] is None:
+                raise NotFound("Page not found for the current student")
+            page = connection.execute(
+                "SELECT * FROM submission_pages WHERE id = ? AND submission_id = ?",
+                (page_id, session["current_submission_id"]),
+            ).fetchone()
+            if page is None or not page["mime_type"]:
+                raise NotFound("Page image not found for the current student")
+            image_path = self._stored_page_path(page["source_ref"])
+            if image_path is None:
+                raise NotFound("Page image not found for the current student")
+            mime_type = page["mime_type"]
+        try:
+            return image_path.read_bytes(), mime_type
+        except FileNotFoundError as error:
+            raise NotFound("Page image file is missing") from error
+
+    def _require_capture_session(self, connection, token):
+        session = connection.execute(
+            "SELECT * FROM capture_sessions WHERE status = 'ACTIVE' LIMIT 1"
+        ).fetchone()
+        if session is None:
+            raise Unauthorized("Capture Session token is invalid or no longer active")
+        presented = token.encode("utf-8") if isinstance(token, str) and len(token) <= 256 else b""
+        token_hash = hashlib.sha256(presented).hexdigest()
+        if not hmac.compare_digest(session["token_hash"], token_hash):
+            raise Unauthorized("Capture Session token is invalid or no longer active")
+        if datetime.fromisoformat(session["expires_at"]) <= datetime.now(timezone.utc):
+            raise Unauthorized("Capture Session token is invalid or no longer active")
+        return session
+
+    def _next_capture_submission_locked(self, connection, assignment_id, now):
+        assignment = self._require(connection, "assignments", assignment_id)
+        students = connection.execute(
+            """SELECT students.* FROM students
+               JOIN classes ON classes.id = students.class_id
+               WHERE students.class_id = ? AND students.active = 1 AND classes.active = 1
+               ORDER BY students.student_no COLLATE NOCASE, students.id""",
+            (assignment["class_id"],),
+        ).fetchall()
+        for student in students:
+            submission = connection.execute(
+                "SELECT * FROM submissions WHERE assignment_id = ? AND student_id = ?",
+                (assignment_id, student["id"]),
+            ).fetchone()
+            if submission is None:
+                submission_id = new_id()
+                connection.execute(
+                    """INSERT INTO submissions
+                       (id, assignment_id, student_id, status, page_count, created_at)
+                       VALUES (?, ?, ?, 'EMPTY', 0, ?)""",
+                    (submission_id, assignment_id, student["id"], now),
+                )
+                submission = self._require(connection, "submissions", submission_id)
+            if submission["status"] == "EMPTY":
+                transition(connection, submission["id"], "CAPTURING", now)
+                submission = self._require(connection, "submissions", submission["id"])
+            if submission["status"] == "CAPTURING":
+                return student, submission
+        return None
+
+    def _capture_state_locked(self, connection, session):
+        assignment = self._require(connection, "assignments", session["assignment_id"])
+        classroom = self._require(connection, "classes", assignment["class_id"])
+        current = None
+        if session["current_submission_id"] is not None:
+            student = self._require(connection, "students", session["current_student_id"])
+            submission = self._require(connection, "submissions", session["current_submission_id"])
+            pages = connection.execute(
+                """SELECT id, page_index, original_filename, mime_type, byte_size, uploaded_at
+                   FROM submission_pages WHERE submission_id = ? ORDER BY page_index""",
+                (submission["id"],),
+            ).fetchall()
+            current = {
+                "submission_id": submission["id"],
+                "student_id": student["id"],
+                "student_name": student["name"],
+                "student_no": student["student_no"],
+                "status": submission["status"],
+                "page_count": submission["page_count"],
+                "pages": [self._row(page) for page in pages],
+            }
+        totals = connection.execute(
+            """SELECT COUNT(*) FROM students JOIN classes ON classes.id = students.class_id
+               WHERE students.class_id = ? AND students.active = 1 AND classes.active = 1""",
+            (assignment["class_id"],),
+        ).fetchone()[0]
+        finished = connection.execute(
+            """SELECT COUNT(*) FROM capture_session_submissions
+               WHERE session_id = ? AND finished_at IS NOT NULL""",
+            (session["id"],),
+        ).fetchone()[0]
+        last_finished = connection.execute(
+            """SELECT students.name, submissions.status, capture_session_submissions.finished_at
+               FROM capture_session_submissions
+               JOIN students ON students.id = capture_session_submissions.student_id
+               JOIN submissions ON submissions.id = capture_session_submissions.submission_id
+               WHERE capture_session_submissions.session_id = ?
+                 AND capture_session_submissions.finished_at IS NOT NULL
+               ORDER BY capture_session_submissions.finished_at DESC LIMIT 1""",
+            (session["id"],),
+        ).fetchone()
+        processing = connection.execute(
+            """SELECT students.name AS student_name, submissions.status,
+                      submissions.page_count, jobs.status AS job_status
+               FROM submissions JOIN students ON students.id = submissions.student_id
+               LEFT JOIN jobs ON jobs.submission_id = submissions.id
+               WHERE submissions.assignment_id = ?
+                 AND (submissions.status IN ('QUEUED', 'PROCESSING')
+                      OR jobs.status IN ('QUEUED', 'RUNNING'))
+               ORDER BY submissions.created_at, submissions.id""",
+            (assignment["id"],),
+        ).fetchall()
+        return {
+            "session_id": session["id"],
+            "status": session["status"],
+            "created_at": session["created_at"],
+            "expires_at": session["expires_at"],
+            "class_name": classroom["name"],
+            "assignment_name": assignment["name"],
+            "current": current,
+            "complete": current is None,
+            "finished_count": finished,
+            "total_students": totals,
+            "last_finished": self._row(last_finished),
+            "processing": [self._row(row) for row in processing],
+        }
+
+    @staticmethod
+    def _capture_session_summary(session):
+        fields = (
+            "id", "assignment_id", "created_at", "expires_at", "ended_at", "status",
+            "current_student_id", "current_submission_id",
+        )
+        return {field: session[field] for field in fields}
+
+    def _stored_page_path(self, source_ref):
+        if not isinstance(source_ref, str) or not source_ref.startswith("pages/"):
+            return None
+        pages_root = self.pages_dir.resolve()
+        image_path = (self.data_dir / source_ref).resolve()
+        try:
+            image_path.relative_to(pages_root)
+        except ValueError as error:
+            raise ValidationError("Stored page path is outside the image directory") from error
+        return image_path
 
     def get_submission(self, submission_id):
         with self.database.connection() as connection:

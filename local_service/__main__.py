@@ -24,6 +24,7 @@ def main():
     parser = argparse.ArgumentParser(description="Run the local Math Grader service")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--capture-port", type=int, default=8766)
     parser.add_argument("--data-dir", type=Path, default=default_data_dir())
     recognition_config = os.environ.get("MATH_GRADER_RECOGNITION_CONFIG")
     parser.add_argument(
@@ -41,7 +42,10 @@ def main():
         recognition_config=args.recognition_config,
     )
     worker = JobWorker(service)
-    server = create_server(service, args.host, args.port)
+    from local_service.capture_bridge import CaptureBridge
+
+    capture_bridge = CaptureBridge(service, port=args.capture_port)
+    server = create_server(service, args.host, args.port, capture_bridge=capture_bridge)
     worker.start()
     logging.getLogger(__name__).info("Local service listening on http://%s:%s", args.host, args.port)
     try:
@@ -51,6 +55,7 @@ def main():
     finally:
         server.shutdown()
         server.server_close()
+        capture_bridge.close()
         worker.stop()
 
 

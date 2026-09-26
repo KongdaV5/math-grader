@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, fileAsBase64, type Assignment, type ClassRecord, type Student, type Submission } from "./api";
+import { CaptureControls } from "./CaptureControls";
 
 const now = new Date();
 const today = new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
@@ -32,6 +33,7 @@ function App() {
   const [assignmentDate, setAssignmentDate] = useState(today);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [captureActive, setCaptureActive] = useState(false);
 
   const selectedStudent = useMemo(() => students.find((student) => student.id === studentId), [students, studentId]);
   const selectedAssignment = useMemo(() => assignments.find((assignment) => assignment.id === assignmentId), [assignments, assignmentId]);
@@ -170,7 +172,7 @@ function App() {
   }
 
   const canCapture = submission?.status === "CAPTURING";
-  const canStart = serviceReady && !submission && Boolean(studentId && assignmentId);
+  const canStart = serviceReady && !captureActive && !submission && Boolean(studentId && assignmentId);
 
   return (
     <main className="shell">
@@ -251,7 +253,14 @@ function App() {
               <span className="step-number">02</span>
             </div>
 
-            {!submission && <div className="start-panel">
+            <CaptureControls
+              assignmentId={assignmentId}
+              assignmentLabel={selectedAssignment?.name ?? ""}
+              serviceReady={serviceReady}
+              onActiveChange={setCaptureActive}
+            />
+
+            {!captureActive && !submission && <div className="start-panel">
               <div className="start-illustration" aria-hidden="true"><span>＋</span><i>页</i></div>
               <div className="start-copy">
                 <strong>{selectedStudent?.name ?? "选择一名学生"}</strong>
@@ -261,7 +270,7 @@ function App() {
               <button className="button primary" onClick={() => void startSubmission()} disabled={!canStart || busy}>开始该生</button>
             </div>}
 
-            {submission && <div className="submission-panel">
+            {!captureActive && submission && <div className="submission-panel">
               <div className="submission-person">
                 <div className="avatar">{selectedStudent?.name.slice(0, 1) ?? "学"}</div>
                 <div className="person-copy">

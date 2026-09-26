@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#f4f3ee">
+    <title>作业拍摄</title>
+    <style>
+      :root { color-scheme: light dark; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans SC", sans-serif; color: #242923; background: #f4f3ee; font-size: 17px; --page-bg: #f4f3ee; --surface: #fff; --surface-tint: #edf4ee; --text: #242923; --muted: #59645a; --border: #e2e5dc; --green: #3b7052; --green-border: #52785b; --green-soft: #f6f8f5; --green-soft-border: #cbd8cb; --green-soft-text: #355b3d; --danger-bg: #fff7f5; --danger-border: #edcfca; --danger-text: #9d4d44; --shadow: rgb(22 29 23 / 20%); }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; min-height: 100dvh; padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); background: var(--page-bg); color: var(--text); }
+      main { width: min(100%, 560px); margin: 0 auto; }
+      header { margin: 8px 2px 16px; }
+      h1 { margin: 0; font-size: 21px; line-height: 1.3; }
+      header p { margin: 6px 0 0; color: var(--muted); line-height: 1.5; }
+      .card { margin: 12px 0; padding: 18px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+      .student-card { background: var(--surface-tint); border-color: var(--border); }
+      .eyebrow { margin: 0 0 6px; color: var(--green-border); font-size: 13px; font-weight: 700; }
+      .student-name { margin: 0; font-size: 27px; line-height: 1.25; }
+      .page-count { margin: 9px 0 0; color: var(--muted); }
+      button, .camera-button { display: inline-flex; align-items: center; justify-content: center; min-height: 50px; padding: 12px 16px; border: 1px solid var(--green-border); border-radius: 10px; background: var(--green); color: #fff; font: inherit; font-weight: 700; text-align: center; text-decoration: none; transition: filter 120ms ease, opacity 120ms ease; touch-action: manipulation; }
+      button:not(:disabled), .camera-button { cursor: pointer; }
+      button:active:not(:disabled), .camera-button:active { filter: brightness(.92); }
+      button:disabled { opacity: .55; cursor: not-allowed; }
+      button.secondary { border-color: var(--green-soft-border); background: var(--green-soft); color: var(--green-soft-text); }
+      button.danger { border-color: var(--danger-border); background: var(--danger-bg); color: var(--danger-text); }
+      button:focus-visible, .camera-button:focus-within { outline: 3px solid #7da889; outline-offset: 2px; }
+      .camera-button { position: relative; width: 100%; min-height: 58px; overflow: hidden; cursor: pointer; }
+      .camera-button input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+      .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+      .actions button { width: 100%; }
+      .actions .wide { grid-column: 1 / -1; }
+      .preview { display: block; width: 100%; max-height: 54vh; margin-top: 12px; border-radius: 9px; object-fit: contain; background: var(--page-bg); }
+      .page-list { display: grid; gap: 10px; margin: 12px 0 0; padding: 0; list-style: none; }
+      .page-item { display: grid; grid-template-columns: 76px 1fr auto; align-items: center; gap: 11px; padding: 9px; border: 1px solid var(--border); border-radius: 10px; }
+      .thumb { width: 76px; height: 76px; border-radius: 7px; object-fit: cover; background: var(--page-bg); }
+      .page-copy { min-width: 0; }
+      .page-copy strong { display: block; }
+      .page-copy small { display: block; margin-top: 4px; overflow-wrap: anywhere; color: var(--muted); }
+      .page-item button { min-height: 44px; padding: 8px 10px; font-size: 15px; }
+      #message { min-height: 1.5em; margin: 10px 2px; color: var(--muted); line-height: 1.5; }
+      #message.error { color: var(--danger-text); }
+      .complete { padding: 22px 8px; text-align: center; }
+      .complete h2 { margin: 0 0 8px; font-size: 23px; }
+      .muted { color: var(--muted); }
+      .confirm-backdrop { position: fixed; z-index: 10; inset: 0; display: grid; place-items: center; padding: max(20px, env(safe-area-inset-top)) 16px max(20px, env(safe-area-inset-bottom)); background: var(--shadow); }
+      .confirm-backdrop[hidden] { display: none; }
+      .confirm-dialog { width: min(100%, 420px); margin: 0; padding: 20px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); color: var(--text); box-shadow: 0 12px 36px var(--shadow); }
+      .confirm-dialog h2 { margin: 0 0 8px; font-size: 20px; }
+      .confirm-dialog p { margin: 0; color: var(--muted); line-height: 1.5; }
+      .confirm-dialog .actions { margin-top: 18px; }
+      @media (prefers-color-scheme: dark) {
+        :root { --page-bg: #161a17; --surface: #222823; --surface-tint: #253329; --text: #e8ece7; --muted: #b6c0b6; --border: #414b43; --green: #3b7052; --green-border: #81a58a; --green-soft: #29362d; --green-soft-border: #536859; --green-soft-text: #c9dece; --danger-bg: #392a28; --danger-border: #694742; --danger-text: #f2b6ac; --shadow: rgb(0 0 0 / 58%); }
+      }
+      @media (max-width: 360px) { .card { padding: 14px; } .page-item { grid-template-columns: 60px 1fr auto; gap: 8px; } .thumb { width: 60px; height: 60px; } .page-item button { padding: 7px; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>作业拍摄</h1>
+        <p id="assignment-line">正在连接 Mac…</p>
+      </header>
+      <section id="student-card" class="card student-card" hidden>
+        <p class="eyebrow">当前学生</p>
+        <h2 id="student-name" class="student-name" tabindex="-1"></h2>
+        <p id="page-count" class="page-count"></p>
+      </section>
+      <section id="capture-card" class="card" hidden>
+        <label class="camera-button">
+          <span>拍摄一页</span>
+          <input id="camera-input" type="file" accept="image/*" capture="environment" aria-label="拍摄一页作业">
+        </label>
+        <div id="staged-panel" hidden>
+          <p id="staged-title" class="eyebrow"></p>
+          <img id="staged-preview" class="preview" alt="待上传作业预览">
+          <div class="actions">
+            <button id="retake-button" class="secondary" type="button">重拍</button>
+            <button id="keep-button" type="button">保留并上传</button>
+          </div>
+        </div>
+        <ol id="page-list" class="page-list" aria-label="已拍页面" tabindex="-1"></ol>
+        <div class="actions">
+          <button id="finish-button" class="wide" type="button">完成该生</button>
+        </div>
+      </section>
+      <section id="complete-card" class="card complete" hidden>
+        <h2 id="complete-title" tabindex="-1">本班拍摄完成</h2>
+        <p class="muted">可以回到 Mac 结束本次手机拍摄。</p>
+      </section>
+      <p id="message" role="status" aria-live="polite">正在连接 Mac…</p>
+    </main>
+    <div id="confirm-backdrop" class="confirm-backdrop" hidden>
+      <section class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-copy">
+        <h2 id="confirm-title">请确认</h2>
+        <p id="confirm-copy"></p>
+        <div class="actions">
+          <button id="cancel-confirm" class="secondary" type="button">取消</button>
+          <button id="accept-confirm" class="danger" type="button">确认</button>
+        </div>
+      </section>
+    </div>
+    <script>
+      (() => {
+        const TOKEN_KEY = "mathGraderCaptureToken";
+        const url = new URL(window.location.href);
+        const queryToken = url.searchParams.get("t");
+        let token = queryToken || "";
+        try {
+          if (queryToken) sessionStorage.setItem(TOKEN_KEY, queryToken);
+          else token = sessionStorage.getItem(TOKEN_KEY) || "";
+        } catch (_) { /* The current page can still use the QR query token. */ }
+        if (queryToken) history.replaceState(null, "", url.pathname);
+
+        const assignmentLine = document.getElementById("assignment-line");
+        const studentCard = document.getElementById("student-card");
+        const studentName = document.getElementById("student-name");
+        const pageCount = document.getElementById("page-count");
+        const captureCard = document.getElementById("capture-card");
+        const completeCard = document.getElementById("complete-card");
+        const completeTitle = document.getElementById("complete-title");
+        const cameraInput = document.getElementById("camera-input");
+        const stagedPanel = document.getElementById("staged-panel");
+        const stagedTitle = document.getElementById("staged-title");
+        const stagedPreview = document.getElementById("staged-preview");
+        const keepButton = document.getElementById("keep-button");
+        const retakeButton = document.getElementById("retake-button");
+        const finishButton = document.getElementById("finish-button");
+        const pageList = document.getElementById("page-list");
+        const message = document.getElementById("message");
+        const confirmBackdrop = document.getElementById("confirm-backdrop");
+        const confirmTitle = document.getElementById("confirm-title");
+        const confirmCopy = document.getElementById("confirm-copy");
+        const cancelConfirm = document.getElementById("cancel-confirm");
+        const acceptConfirm = document.getElementById("accept-confirm");
+        const pageUrls = new Map();
+        let currentState = null;
+        let currentStudentId = "";
+        let stagedFile = null;
+        let stagedUrl = "";
+        let uploadId = "";
+        let busy = false;
+        let confirmResolver = null;
+        let confirmReturnFocus = null;
+
+        function askConfirmation(title, copy, confirmLabel) {
+          if (confirmResolver) return Promise.resolve(false);
+          confirmTitle.textContent = title;
+          confirmCopy.textContent = copy;
+          acceptConfirm.textContent = confirmLabel;
+          confirmReturnFocus = document.activeElement;
+          confirmBackdrop.hidden = false;
+          cancelConfirm.focus();
+          return new Promise((resolve) => { confirmResolver = resolve; });
+        }
+
+        function closeConfirmation(confirmed) {
+          if (!confirmResolver) return;
+          const resolve = confirmResolver;
+          confirmResolver = null;
+          confirmBackdrop.hidden = true;
+          if (!confirmed && confirmReturnFocus instanceof HTMLElement) confirmReturnFocus.focus();
+          confirmReturnFocus = null;
+          resolve(confirmed);
+        }
+
+        cancelConfirm.addEventListener("click", () => closeConfirmation(false));
+        acceptConfirm.addEventListener("click", () => closeConfirmation(true));
+        confirmBackdrop.addEventListener("click", (event) => { if (event.target === confirmBackdrop) closeConfirmation(false); });
+        document.addEventListener("keydown", (event) => {
+          if (confirmBackdrop.hidden) return;
+          if (event.key === "Escape") { event.preventDefault(); closeConfirmation(false); }
+          else if (event.key === "Tab") {
+            event.preventDefault();
+            (document.activeElement === cancelConfirm ? acceptConfirm : cancelConfirm).focus();
+          }
+        });
+
+        function showMessage(text, isError = false) {
+          message.textContent = text;
+          message.classList.toggle("error", isError);
+        }
+
+        function makeUploadId() {
+          const bytes = new Uint8Array(16);
+          if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(bytes);
+          else for (let index = 0; index < bytes.length; index += 1) bytes[index] = Math.floor(Math.random() * 256);
+          bytes[6] = (bytes[6] & 15) | 64;
+          bytes[8] = (bytes[8] & 63) | 128;
+          const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+          return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+        }
+
+        async function apiRequest(path, options = {}) {
+          const response = await fetch(path, {
+            cache: "no-store",
+            ...options,
+            headers: { Authorization: `Bearer ${token}`, ...(options.headers || {}) },
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(payload.error || `请求失败（${response.status}）`);
+          return payload;
+        }
+
+        async function loadPageImage(page) {
+          if (pageUrls.has(page.id)) return pageUrls.get(page.id);
+          const response = await fetch(`/api/capture/pages/${encodeURIComponent(page.id)}/image`, {
+            cache: "no-store", headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!response.ok) return "";
+          const objectUrl = URL.createObjectURL(await response.blob());
+          pageUrls.set(page.id, objectUrl);
+          return objectUrl;
+        }
+
+        async function loadCurrent(announce = false) {
+          if (!token) {
+            showMessage("拍摄授权无效。请回到 Mac 重新扫描二维码。", true);
+            return;
+          }
+          try {
+            const state = await apiRequest("/api/capture/current");
+            const previousStudentId = currentState && currentState.current ? currentState.current.student_id : "";
+            const nextStudentId = state.current ? state.current.student_id : "";
+            if (previousStudentId && previousStudentId !== nextStudentId) {
+              for (const imageUrl of pageUrls.values()) URL.revokeObjectURL(imageUrl);
+              pageUrls.clear();
+            }
+            currentState = state;
+            assignmentLine.textContent = `${state.class_name} · ${state.assignment_name}`;
+            if (state.complete) {
+              studentCard.hidden = true;
+              captureCard.hidden = true;
+              completeCard.hidden = false;
+              showMessage("所有学生的页面已保存到 Mac。", false);
+              return;
+            }
+            completeCard.hidden = true;
+            studentCard.hidden = false;
+            captureCard.hidden = false;
+            studentName.textContent = state.current.student_name;
+            pageCount.textContent = `已拍：${state.current.page_count} 页`;
+            if (announce && currentStudentId && currentStudentId !== state.current.student_id) {
+              showMessage(`已完成上一位学生。下一位：${state.current.student_name}`);
+            } else if (!busy) {
+              showMessage(state.current.page_count ? "页面已保存到 Mac，可以继续拍摄。" : "请拍摄该学生的作业页面。");
+            }
+            currentStudentId = state.current.student_id;
+            finishButton.textContent = `完成${state.current.student_name}`;
+            finishButton.disabled = busy || state.current.page_count < 1 || Boolean(stagedFile);
+            pageList.replaceChildren();
+            for (const page of state.current.pages) {
+              const item = document.createElement("li");
+              item.className = "page-item";
+              const image = document.createElement("img");
+              image.className = "thumb";
+              image.alt = `第 ${page.page_index} 页预览`;
+              image.src = await loadPageImage(page);
+              const copy = document.createElement("div");
+              copy.className = "page-copy";
+              const title = document.createElement("strong");
+              title.textContent = `第 ${page.page_index} 页`;
+              const detail = document.createElement("small");
+              detail.textContent = `${page.original_filename || "作业照片"} · ${(page.byte_size / 1024 / 1024).toFixed(1)} MB`;
+              copy.append(title, detail);
+              const remove = document.createElement("button");
+              remove.type = "button";
+              remove.className = "danger";
+              remove.textContent = "删除";
+              remove.setAttribute("aria-label", `删除第 ${page.page_index} 页`);
+              remove.disabled = busy;
+              remove.addEventListener("click", () => void deletePage(page));
+              item.append(image, copy, remove);
+              pageList.append(item);
+            }
+          } catch (error) {
+            showMessage(error instanceof Error ? error.message : "无法连接 Mac。请检查 Wi-Fi 后重试。", true);
+          }
+        }
+
+        function chooseFile(file) {
+          if (!file) return;
+          if (!file.type.startsWith("image/")) {
+            showMessage("请选择图片文件。", true);
+            cameraInput.value = "";
+            return;
+          }
+          if (file.size > 10 * 1024 * 1024) {
+            showMessage("单张图片不能超过 10 MB。", true);
+            cameraInput.value = "";
+            return;
+          }
+          if (stagedUrl) URL.revokeObjectURL(stagedUrl);
+          stagedFile = file;
+          stagedUrl = URL.createObjectURL(file);
+          uploadId = makeUploadId();
+          stagedTitle.textContent = `第 ${(currentState?.current?.page_count || 0) + 1} 页预览`;
+          stagedPreview.src = stagedUrl;
+          stagedPanel.hidden = false;
+          keepButton.disabled = false;
+          finishButton.disabled = true;
+          showMessage("确认预览后再保留上传；重拍不会加入作业。 ");
+        }
+
+        function clearStaged() {
+          if (stagedUrl) URL.revokeObjectURL(stagedUrl);
+          stagedFile = null;
+          stagedUrl = "";
+          uploadId = "";
+          stagedPreview.removeAttribute("src");
+          stagedPanel.hidden = true;
+          cameraInput.value = "";
+          finishButton.disabled = busy || !currentState?.current?.page_count;
+        }
+
+        async function keepPhoto() {
+          if (!stagedFile || busy) return;
+          busy = true;
+          keepButton.disabled = true;
+          retakeButton.disabled = true;
+          cameraInput.disabled = true;
+          finishButton.disabled = true;
+          showMessage("正在上传并保存到 Mac…");
+          try {
+            const response = await apiRequest("/api/capture/page", {
+              method: "POST",
+              headers: {
+                "Content-Type": stagedFile.type || "application/octet-stream",
+                "X-File-Name": encodeURIComponent(stagedFile.name),
+                "X-Capture-Submission-ID": currentState.current.submission_id,
+                "Idempotency-Key": uploadId,
+              },
+              body: stagedFile,
+            });
+            pageUrls.set(response.page.id, stagedUrl);
+            stagedUrl = "";
+            stagedFile = null;
+            uploadId = "";
+            stagedPanel.hidden = true;
+            cameraInput.value = "";
+            await loadCurrent();
+            showMessage(`第 ${response.page.page_index} 页已保存到 Mac。`);
+          } catch (error) {
+            showMessage(`${error instanceof Error ? error.message : "上传失败"} 照片仍保留，可重试或重拍。`, true);
+          } finally {
+            busy = false;
+            keepButton.disabled = !stagedFile;
+            retakeButton.disabled = false;
+            cameraInput.disabled = false;
+            finishButton.disabled = !currentState?.current?.page_count || Boolean(stagedFile);
+            for (const button of pageList.querySelectorAll("button")) button.disabled = false;
+          }
+        }
+
+        async function deletePage(page) {
+          if (busy || !(await askConfirmation("删除这一页？", `删除第 ${page.page_index} 页？`, "删除页面"))) return;
+          busy = true;
+          showMessage(`正在删除第 ${page.page_index} 页…`);
+          try {
+            await apiRequest(`/api/capture/pages/${encodeURIComponent(page.id)}`, { method: "DELETE" });
+            const imageUrl = pageUrls.get(page.id);
+            if (imageUrl) URL.revokeObjectURL(imageUrl);
+            pageUrls.delete(page.id);
+            await loadCurrent();
+            showMessage("页面已删除，后续页码已顺序整理。");
+            pageList.focus();
+          } catch (error) {
+            showMessage(error instanceof Error ? error.message : "删除失败。", true);
+          } finally {
+            busy = false;
+            await loadCurrent();
+          }
+        }
+
+        async function finishStudent() {
+          if (busy || stagedFile || !currentState?.current) return;
+          const current = currentState.current;
+          if (!(await askConfirmation("完成该生？", `${current.student_name}本次共拍 ${current.page_count} 页。确认后将加入 Mac 后台队列并切换到下一位学生。`, "完成该生"))) return;
+          busy = true;
+          finishButton.disabled = true;
+          showMessage("已确认，正在加入 Mac 后台队列…");
+          try {
+            await apiRequest(`/api/capture/submissions/${encodeURIComponent(current.submission_id)}/finish`, { method: "POST" });
+            busy = false;
+            await loadCurrent(true);
+            if (currentState?.complete) completeTitle.focus();
+            else if (currentState?.current) studentName.focus();
+          } catch (error) {
+            showMessage(error instanceof Error ? error.message : "完成该生失败，请重试。", true);
+          } finally {
+            busy = false;
+            finishButton.disabled = !currentState?.current?.page_count || Boolean(stagedFile);
+          }
+        }
+
+        cameraInput.addEventListener("change", () => chooseFile(cameraInput.files && cameraInput.files[0]));
+        retakeButton.addEventListener("click", () => { clearStaged(); showMessage("已放弃此照片，可以重新拍摄。"); });
+        keepButton.addEventListener("click", () => void keepPhoto());
+        finishButton.addEventListener("click", () => void finishStudent());
+        loadCurrent();
+        window.setInterval(() => { if (!busy) void loadCurrent(true); }, 2000);
+      })();
+    </script>
+  </body>
+</html>
