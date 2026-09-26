@@ -7,6 +7,7 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
+    "test:coordinates": "node --experimental-strip-types --test src/coordinates.test.ts",
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build",
     "demo:dev": "node scripts/dev-with-service.mjs",

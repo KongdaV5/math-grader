@@ -17,6 +17,9 @@ from local_service.model_catalog import safe_relative_path
 
 
 class HuggingFaceDownloader:
+    def __init__(self, cache_dir=None):
+        self.cache_dir = cache_dir
+
     def list_files(self, repo, revision, artifact):
         from huggingface_hub import HfApi
         info = HfApi().model_info(repo, revision=revision, files_metadata=True)
@@ -35,8 +38,12 @@ class HuggingFaceDownloader:
 
     def download_file(self, repo, revision, filename, directory):
         from huggingface_hub import hf_hub_download
-        return Path(hf_hub_download(repo_id=repo, revision=revision, filename=filename,
-                                    local_dir=str(directory)))
+        cached = Path(hf_hub_download(repo_id=repo, revision=revision, filename=filename,
+                                       cache_dir=self.cache_dir))
+        destination = Path(directory) / filename
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(cached, destination)
+        return destination
 
 
 class ModelManager:
@@ -44,10 +51,15 @@ class ModelManager:
         self.catalog = catalog
         self.paths = paths
         self.paths.ensure()
-        self.downloader = downloader or HuggingFaceDownloader()
+        self.downloader = downloader or HuggingFaceDownloader(str(paths.cache / "huggingface"))
         self.disk_usage = disk_usage or shutil.disk_usage
         self._lock = RLock()
         self._jobs = {}
+        self._state_file = paths.config / "model-errors.json"
+        try:
+            self._errors = json.loads(self._state_file.read_text())
+        except (OSError, ValueError):
+            self._errors = {}
 
     def _directory(self, model_id):
         self.catalog.get(model_id)
@@ -65,6 +77,9 @@ class ModelManager:
         if directory.exists() or directory.is_symlink():
             return {"model": model, "state": "ERROR", "path": str(directory), "progress": None,
                     "error": {"code": "MODEL_VERIFY_FAILED", "message": "Model directory has no valid install manifest"}}
+        if model_id in self._errors:
+            return {"model": model, "state": "ERROR", "path": None, "progress": None,
+                    "error": self._errors[model_id]}
         return {"model": model, "state": "NOT_INSTALLED", "path": None, "progress": None, "error": None}
 
     def list_models(self):
@@ -74,6 +89,16 @@ class ModelManager:
         with self._lock:
             self._jobs[model_id].update(values)
 
+    def _save_error(self, model_id, error=None):
+        with self._lock:
+            if error is None:
+                self._errors.pop(model_id, None)
+            else:
+                self._errors[model_id] = error
+            temporary = self._state_file.with_suffix(".tmp")
+            temporary.write_text(json.dumps(self._errors), encoding="utf-8")
+            os.replace(temporary, self._state_file)
+
     def install_model(self, model_id, background=True):
         self.catalog.get(model_id)
         with self._lock:
@@ -82,6 +107,7 @@ class ModelManager:
                 return self.get_model_status(model_id)
             if current in ("QUEUED", "DOWNLOADING", "VERIFYING", "REMOVING"):
                 raise ValueError("Model operation already in progress")
+            self._save_error(model_id)
             self._jobs[model_id] = {"state": "QUEUED", "path": None,
                                     "progress": {"completed_files": 0, "total_files": None, "current_file": None},
                                     "error": None, "cancel_event": Event()}
@@ -154,7 +180,9 @@ class ModelManager:
                 self._jobs.pop(model_id, None)
         except Exception as error:
             code = error.code if hasattr(error, "code") else "MODEL_DOWNLOAD_FAILED"
-            self._set(model_id, state="ERROR", error={"code": code, "message": str(error)}, path=None)
+            summary = {"code": code, "message": str(error)[:600]}
+            self._save_error(model_id, summary)
+            self._set(model_id, state="ERROR", error=summary, path=None)
         finally:
             if stage.exists() and not stage.is_symlink():
                 shutil.rmtree(stage)

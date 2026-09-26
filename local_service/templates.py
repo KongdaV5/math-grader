@@ -29,6 +29,17 @@ def _row(row):
     return item
 
 
+ANSWER_TYPES = ("integer", "decimal", "choice", "boolean", "comparison_symbol", "fraction",
+                "formula", "short_text", "sequence", "multi_blank")
+
+
+def validate_bbox(x, y, width, height):
+    if (any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v)
+            for v in (x, y, width, height)) or not 0 <= x < 1 or not 0 <= y < 1
+            or not 0 < width <= 1 or not 0 < height <= 1 or x + width > 1 or y + height > 1):
+        raise InvalidAnswerRegion("Bounding box must fit normalized 0..1 space")
+
+
 class TemplateService:
     def __init__(self, database):
         self.database = database
@@ -84,15 +95,23 @@ class TemplateService:
         item["questions"] = self.list_questions(page_id)
         return item
 
+    def _bump(self, connection, page_id):
+        connection.execute("UPDATE page_templates SET version=version+1,updated_at=? WHERE id=?", (_now(), page_id))
+
     def set_reference_image(self, page_id, source_ref):
         with self.database.connection() as connection:
             self._require(connection, "page_templates", page_id)
+            self._bump(connection, page_id)
             connection.execute("UPDATE page_templates SET reference_image=?,updated_at=? WHERE id=?",
                                (source_ref, _now(), page_id))
         return self.get_page_template(page_id)
 
     def create_question(self, page_id, question_no, answer_type, correct_answer=None,
                         accepted_answers=None, score=1, knowledge_tag=None, metadata=None):
+        if answer_type not in ANSWER_TYPES:
+            raise ValueError("Unsupported answer_type")
+        if not isinstance(metadata or {}, dict):
+            raise ValueError("metadata must be an object")
         if not isinstance(score, (int, float)) or not math.isfinite(score) or score < 0:
             raise ValueError("score must be nonnegative")
         if accepted_answers is not None and (not isinstance(accepted_answers, list) or
@@ -108,6 +127,7 @@ class TemplateService:
                     (item_id, page_id, _text(question_no, "question_no"), _text(answer_type, "answer_type"),
                      correct_answer, json.dumps(accepted_answers or []), score, knowledge_tag,
                      json.dumps(metadata or {}), _now()))
+                self._bump(connection, page_id)
         except sqlite3.IntegrityError as error:
             raise ValueError("Question number already exists on this page") from error
         return self.get_question(item_id)
@@ -126,6 +146,7 @@ class TemplateService:
         return [self.get_question(item_id) for item_id in ids]
 
     def create_answer_region(self, question_id, region_index, x, y, width, height, metadata=None):
+        validate_bbox(x, y, width, height)
         values = (x, y, width, height)
         if (not isinstance(region_index, int) or isinstance(region_index, bool) or region_index <= 0 or
             any(not isinstance(value, (int, float)) or not math.isfinite(value) for value in values) or
@@ -134,7 +155,8 @@ class TemplateService:
         item_id = str(uuid.uuid4())
         try:
             with self.database.connection() as connection:
-                self._require(connection, "template_questions", question_id)
+                question = self._require(connection, "template_questions", question_id)
+                self._bump(connection, question["page_template_id"])
                 connection.execute("""INSERT INTO answer_regions
                     (id,question_id,region_index,x,y,width,height,coordinate_space,metadata_json,created_at)
                     VALUES (?,?,?,?,?,? ,?,'normalized',?,?)""",
@@ -150,3 +172,48 @@ class TemplateService:
             self._require(connection, "template_questions", question_id)
             return [_row(row) for row in connection.execute(
                 "SELECT * FROM answer_regions WHERE question_id=? ORDER BY region_index", (question_id,))]
+
+    def update_question(self, question_id, data):
+        current = self.get_question(question_id)
+        values = {key: data.get(key, current[key]) for key in
+                  ("question_no", "answer_type", "correct_answer", "accepted_answers", "score", "knowledge_tag", "metadata")}
+        if values["answer_type"] not in ANSWER_TYPES:
+            raise ValueError("Unsupported answer_type")
+        if not isinstance(values["metadata"], dict) or not isinstance(values["accepted_answers"], list) or any(not isinstance(x, str) for x in values["accepted_answers"]):
+            raise ValueError("Invalid metadata or accepted_answers")
+        score = values["score"]
+        if not isinstance(score, (int, float)) or not math.isfinite(score) or score < 0:
+            raise ValueError("score must be nonnegative")
+        with self.database.connection() as connection:
+            connection.execute("""UPDATE template_questions SET question_no=?,answer_type=?,correct_answer=?,
+                accepted_answers_json=?,score=?,knowledge_tag=?,metadata_json=? WHERE id=?""",
+                (_text(values["question_no"], "question_no"), values["answer_type"], values["correct_answer"],
+                 json.dumps(values["accepted_answers"]), score, values["knowledge_tag"], json.dumps(values["metadata"]), question_id))
+            self._bump(connection, current["page_template_id"])
+        return self.get_question(question_id)
+
+    def delete_question(self, question_id):
+        with self.database.connection() as connection:
+            current = self._require(connection, "template_questions", question_id)
+            connection.execute("DELETE FROM answer_regions WHERE question_id=?", (question_id,))
+            connection.execute("DELETE FROM template_questions WHERE id=?", (question_id,))
+            self._bump(connection, current["page_template_id"])
+        return {"deleted": question_id}
+
+    def update_region(self, region_id, data):
+        with self.database.connection() as connection:
+            current = self._require(connection, "answer_regions", region_id)
+            bbox = [data.get(key, current[key]) for key in ("x", "y", "width", "height")]
+            validate_bbox(*bbox)
+            connection.execute("UPDATE answer_regions SET x=?,y=?,width=?,height=? WHERE id=?", (*bbox, region_id))
+            question = self._require(connection, "template_questions", current["question_id"])
+            self._bump(connection, question["page_template_id"])
+            return _row(self._require(connection, "answer_regions", region_id))
+
+    def delete_region(self, region_id):
+        with self.database.connection() as connection:
+            current = self._require(connection, "answer_regions", region_id)
+            question = self._require(connection, "template_questions", current["question_id"])
+            connection.execute("DELETE FROM answer_regions WHERE id=?", (region_id,))
+            self._bump(connection, question["page_template_id"])
+        return {"deleted": region_id}

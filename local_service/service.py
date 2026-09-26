@@ -19,6 +19,8 @@ from local_service.model_catalog import ModelCatalog
 from local_service.model_manager import ModelManager
 from local_service.templates import TemplateService
 from local_service.image_pipeline import ImagePipeline
+from local_service.vertical_slice import VerticalSlice
+from importlib.util import find_spec
 from local_service.state_machine import InvalidTransition, transition
 
 
@@ -68,10 +70,10 @@ def new_id():
 class MathGraderService:
     def __init__(self, database_path, data_dir=None, recognition_config=None, registry=None):
         self.database = Database(database_path)
-        self.data_dir = Path(data_dir) if data_dir else Path(database_path).parent
+        self.data_dir = (Path(data_dir) if data_dir else Path(database_path).parent).resolve()
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.paths = RuntimePaths(self.data_dir).ensure()
-        self.pages_dir = (self.paths.originals if Path(database_path).parent == self.paths.data
+        self.pages_dir = (self.paths.originals if Path(database_path).resolve().parent == self.paths.data
                           else self.paths.legacy_pages)
         self.pages_dir.mkdir(parents=True, exist_ok=True)
         self.model_catalog = ModelCatalog()
@@ -80,6 +82,7 @@ class MathGraderService:
                                                      catalog=self.model_catalog, manager=self.model_manager)
         self.templates = TemplateService(self.database)
         self.image_pipeline = ImagePipeline(self.paths.processed)
+        self.slice = VerticalSlice(self)
         self.recover_interrupted_jobs()
         self.expire_orphaned_capture_sessions()
 
@@ -92,6 +95,10 @@ class MathGraderService:
     def system_info(self):
         return {"paths": self.paths.describe(), "runtime_version": sys.version.split()[0],
                 "python_supported": sys.version_info >= (3, 9),
+                "dependencies": {name: bool(find_spec(module)) for name,module in
+                                 {"Pillow":"PIL","OpenCV":"cv2","ONNX Runtime":"onnxruntime",
+                                  "Hugging Face Hub":"huggingface_hub","mlx-vlm":"mlx_vlm",
+                                  "PaddleOCR":"paddleocr","PaddlePaddle":"paddle"}.items()},
                 "recognition_config": {"schema_version": self.gateway.config.get("schema_version", 1),
                                        "routes": list(self.gateway.config.get("recognition", {})),
                                        "model_routes": self.gateway.config.get("model_routes", {})}}
@@ -122,10 +129,7 @@ class MathGraderService:
     def process_page_image(self, page_id):
         with self.database.connection() as connection:
             row = self._require(connection, "submission_pages", page_id)
-        path = self._stored_page_path(row["source_ref"])
-        if path is None or not path.is_file():
-            raise NotFound("Stored page image not found")
-        return self.image_pipeline.process(path).to_dict()
+        return self.slice.process_page(page_id)
 
     def import_template_reference(self, page_id, payload):
         self.templates.get_page_template(page_id)
@@ -402,6 +406,8 @@ class MathGraderService:
                         "UPDATE submissions SET page_count = ? WHERE id = ?",
                         (page_index, submission_id),
                     )
+                    connection.execute("INSERT INTO jobs(id,status,created_at,kind,page_id) VALUES(?,'QUEUED',?,'IMAGE',?)",
+                                       (new_id(),uploaded_at,page_id))
         except Exception:
             temporary.unlink(missing_ok=True)
             if created_path:
@@ -888,20 +894,27 @@ class MathGraderService:
     def process_next_job(self):
         with self.database.connection() as connection:
             job = connection.execute(
-                "SELECT * FROM jobs WHERE status = 'QUEUED' ORDER BY sequence LIMIT 1"
+                "SELECT * FROM jobs WHERE status = 'QUEUED' ORDER BY CASE WHEN kind='SUBMISSION' THEN 0 ELSE 1 END, sequence LIMIT 1"
             ).fetchone()
             if job is None:
                 return False
-            transition(connection, job["submission_id"], "PROCESSING", utc_now())
+            if job["kind"] == "SUBMISSION":
+                transition(connection, job["submission_id"], "PROCESSING", utc_now())
             connection.execute(
                 "UPDATE jobs SET status = 'RUNNING', started_at = ?, error = NULL WHERE id = ?",
                 (utc_now(), job["id"]),
             )
 
         try:
-            self._process_submission(job["submission_id"])
+            if job["kind"] == "IMAGE":
+                self.slice.process_page(job["page_id"])
+            elif job["kind"] == "RECOGNITION":
+                self.slice.execute_run(job["run_id"])
+            else:
+                self._process_submission(job["submission_id"])
             with self.database.connection() as connection:
-                transition(connection, job["submission_id"], "COMPLETED", utc_now())
+                if job["kind"] == "SUBMISSION":
+                    transition(connection, job["submission_id"], "COMPLETED", utc_now())
                 connection.execute(
                     "UPDATE jobs SET status = 'COMPLETED', completed_at = ? WHERE id = ?",
                     (utc_now(), job["id"]),
@@ -909,7 +922,8 @@ class MathGraderService:
         except Exception as error:
             message = "{}: {}".format(type(error).__name__, error)
             with self.database.connection() as connection:
-                transition(connection, job["submission_id"], "FAILED", utc_now(), error=message)
+                if job["kind"] == "SUBMISSION":
+                    transition(connection, job["submission_id"], "FAILED", utc_now(), error=message)
                 connection.execute(
                     "UPDATE jobs SET status = 'FAILED', error = ?, completed_at = ? WHERE id = ?",
                     (message, utc_now(), job["id"]),
@@ -918,10 +932,15 @@ class MathGraderService:
 
     def recover_interrupted_jobs(self):
         with self.database.connection() as connection:
-            jobs = connection.execute("SELECT id, submission_id FROM jobs WHERE status = 'RUNNING'").fetchall()
+            jobs = connection.execute("SELECT id, submission_id, kind, page_id, run_id FROM jobs WHERE status = 'RUNNING'").fetchall()
             now = utc_now()
             for job in jobs:
-                transition(connection, job["submission_id"], "QUEUED", now)
+                if job["submission_id"]:
+                    transition(connection, job["submission_id"], "QUEUED", now)
+                elif job["kind"] == "IMAGE":
+                    connection.execute("UPDATE submission_pages SET processing_status='PENDING' WHERE id=?",(job["page_id"],))
+                elif job["kind"] == "RECOGNITION":
+                    connection.execute("UPDATE recognition_results SET status='PENDING' WHERE id=?",(job["run_id"],))
                 connection.execute(
                     "UPDATE jobs SET status = 'QUEUED', started_at = NULL WHERE id = ?",
                     (job["id"],),
@@ -955,7 +974,7 @@ class MathGraderService:
     def job_counts(self):
         with self.database.connection() as connection:
             rows = connection.execute(
-                "SELECT status, COUNT(*) AS count FROM jobs GROUP BY status"
+                "SELECT status, COUNT(*) AS count FROM jobs WHERE kind='SUBMISSION' GROUP BY status"
             ).fetchall()
         return {row["status"]: row["count"] for row in rows}
 

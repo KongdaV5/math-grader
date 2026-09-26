@@ -45,7 +45,7 @@ class BaseModelProvider:
             except (ModelLoadFailed, ProviderUnavailable) as error:
                 return {"model_id": self.model_id, "state": error.code,
                         "lifecycle": self.lifecycle, "runtime_available": True, "error": str(error)}
-        return {"model_id": self.model_id, "state": "READY" if self.lifecycle == "READY" else "AVAILABLE_UNLOADED",
+        return {"model_id": self.model_id, "state": "READY" if self.lifecycle == "READY" else "LOADABLE",
                 "lifecycle": self.lifecycle, "runtime_available": True}
 
     def _installed_path(self):
@@ -81,11 +81,15 @@ class BaseModelProvider:
         with self._lock:
             self.load()
             started = time.perf_counter()
-            text = self._infer(request)
+            output = self._infer(request)
         from local_service.recognition import RecognitionResult
-        return RecognitionResult(text=text, normalized_candidate=text, provider=self.provider_type,
+        if isinstance(output, str):
+            output = {"text": output}
+        metadata = {"runtime": self.manager.catalog.get(self.model_id)["runtime"], **output.get("metadata", {})}
+        return RecognitionResult(text=output.get("text"), normalized_candidate=output.get("text"),
+                                 confidence=output.get("confidence"), provider=self.provider_type,
                                  model=self.model_id, latency_ms=int((time.perf_counter() - started) * 1000),
-                                 metadata={"runtime": self.manager.catalog.get(self.model_id)["runtime"]})
+                                 metadata=metadata)
 
     def _infer(self, request):
         raise ProviderUnavailable("Inference pipeline is not implemented for this provider")
@@ -96,12 +100,15 @@ class PPOCRONNXProvider(BaseModelProvider):
     dependency = "onnxruntime"
 
     def _load(self, path):
-        import onnxruntime as ort
-        return {part: ort.InferenceSession(str(path / part / "inference.onnx"), providers=["CPUExecutionProvider"])
-                for part in ("det", "rec")}
+        from local_service.ocr_runtime import load_bundle
+        return load_bundle(path)
 
     def _infer(self, request):
-        raise ProviderUnavailable("PP-OCR detection/recognition postprocessing is not integrated yet")
+        from local_service.ocr_runtime import recognize_image
+        outcome = recognize_image(request.image, self._runtime)
+        return {"text": outcome["text"], "confidence": outcome["confidence"],
+                "metadata": {"boxes": outcome["boxes"], "lines": outcome["lines"],
+                             "ocr_latency_ms": outcome["latency_ms"]}}
 
 
 class PaddleFormulaProvider(BaseModelProvider):
@@ -109,9 +116,26 @@ class PaddleFormulaProvider(BaseModelProvider):
     dependency = "paddleocr"
 
     def _load(self, path):
-        # The PaddleOCR model_dir contract differs by version; defer construction until
-        # a supported local-path API is verified, rather than trigger an implicit download.
-        raise ProviderUnavailable("Local Paddle Formula runtime adapter is not integrated yet")
+        from paddleocr import FormulaRecognition
+        return FormulaRecognition(model_name="PP-FormulaNet_plus-M", model_dir=str(path / "model"), device="cpu")
+
+    @staticmethod
+    def parse_output(payload):
+        if hasattr(payload,"json"):
+            payload=payload.json
+        if isinstance(payload,dict):
+            value=payload.get("res",payload).get("rec_formula")
+            if isinstance(value,str) and value.strip():
+                return value.strip()
+        from local_service.errors import InvalidRecognitionOutput
+        raise InvalidRecognitionOutput("Formula provider returned no rec_formula")
+
+    def _infer(self, request):
+        output=list(self._runtime.predict(input=request.image,batch_size=1))
+        if len(output)!=1:
+            from local_service.errors import InvalidRecognitionOutput
+            raise InvalidRecognitionOutput("Formula provider returned an unexpected result count")
+        return {"text":self.parse_output(output[0]),"metadata":{"formula_format":"latex"}}
 
 
 class MLXVLMProvider(BaseModelProvider):
@@ -132,8 +156,10 @@ class MLXVLMProvider(BaseModelProvider):
         model_path = str(self._installed_path() / "model")
         config = load_config(model_path)
         prompt = apply_chat_template(processor, config, request.prompt, num_images=1)
-        output = generate(model, processor, prompt, [request.image])
-        return output.text if hasattr(output, "text") else str(output)
+        output = generate(model, processor, prompt, [request.image], verbose=False,
+                          max_tokens=int(request.constraints.get("max_tokens", 64)))
+        return {"text": output.text if hasattr(output, "text") else str(output),
+                "metadata": {"prompt": request.prompt, "constraints": request.constraints}}
 
 
 MODEL_PROVIDERS = {

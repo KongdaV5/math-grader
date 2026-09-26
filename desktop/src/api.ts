@@ -26,6 +26,8 @@ export type PageRecord = {
   id: string;
   page_index: number;
   source_ref: string;
+  processed_image?: string | null;
+  processing_status?: string;
 };
 
 export type RecognitionResult = {
@@ -133,6 +135,18 @@ export const api = {
     request<TemplateQuestion>(`/api/templates/pages/${pageId}/questions`, {method: "POST", body: JSON.stringify(body)}),
   createAnswerRegion: (questionId: string, body: Record<string, unknown>) =>
     request<AnswerRegion>(`/api/templates/questions/${questionId}/regions`, {method: "POST", body: JSON.stringify(body)}),
+  updateTemplateQuestion: (id: string, body: Record<string, unknown>) => request<TemplateQuestion>(`/api/templates/questions/${id}`, {method:"PATCH",body:JSON.stringify(body)}),
+  deleteTemplateQuestion: (id: string) => request<{deleted:string}>(`/api/templates/questions/${id}`, {method:"DELETE"}),
+  updateAnswerRegion: (id: string, body: Record<string, unknown>) => request<AnswerRegion>(`/api/templates/regions/${id}`, {method:"PATCH",body:JSON.stringify(body)}),
+  deleteAnswerRegion: (id: string) => request<{deleted:string}>(`/api/templates/regions/${id}`, {method:"DELETE"}),
+  labImport: (filename:string,image_base64:string) => request<PageRecord>("/api/lab/import", {method:"POST",body:JSON.stringify({filename,image_base64})}),
+  pageProcess: (id:string) => request<Record<string,unknown>>(`/api/pages/${id}/process`,{method:"POST",body:"{}"}),
+  pageDetail: (id:string) => request<LabDetail>(`/api/pages/${id}/detail`),
+  pageMatch: (id:string) => request<Array<{template_id:string;name:string;page_number:number;score:number}>>(`/api/pages/${id}/match`),
+  pageBind: (id:string,template_id:string) => request<Record<string,unknown>>(`/api/pages/${id}/bind`,{method:"POST",body:JSON.stringify({template_id})}),
+  pageCrops: (id:string) => request<AnswerCrop[]>(`/api/pages/${id}/crops`,{method:"POST",body:"{}"}),
+  cropRun: (id:string,model_id?:string) => request<{id:string;status:string;model:string}>(`/api/crops/${id}/runs`,{method:"POST",body:JSON.stringify({model_id})}),
+  pagePredictions: (id:string) => request<Array<Record<string,unknown>>>(`/api/pages/${id}/predictions`),
   classes: () => request<ClassRecord[]>("/api/classes"),
   createClass: (name: string) => request<ClassRecord>("/api/classes", { method: "POST", body: JSON.stringify({ name }) }),
   students: (classId: string) => request<Student[]>(`/api/classes/${classId}/students`),
@@ -173,6 +187,7 @@ export type ModelStatus = { model: ModelEntry; state: string; path: string | nul
   error: {code: string; message: string} | null; };
 export type ProviderHealth = { model_id: string; state: string; lifecycle: string; runtime_available: boolean; error?: string };
 export type SystemInfo = { paths: Record<string, string>; runtime_version: string; python_supported: boolean;
+  dependencies: Record<string,boolean>;
   recognition_config: {schema_version: number; routes: string[]; model_routes: Record<string, unknown>} };
 export type TemplateGroup = {id: string; name: string; grade: string; semester: string; book_name: string;
   publisher: string | null; version: number; created_at: string; updated_at: string};
@@ -180,7 +195,7 @@ export type AnswerRegion = {id: string; question_id: string; region_index: numbe
   width: number; height: number; coordinate_space: "normalized"};
 export type TemplateQuestion = {id: string; page_template_id: string; question_no: string; answer_type: string;
   correct_answer: string | null; accepted_answers: string[]; score: number; knowledge_tag: string | null;
-  regions: AnswerRegion[]};
+  metadata: Record<string,unknown>; regions: AnswerRegion[]};
 export type PageTemplate = {id: string; template_group_id: string; page_number: number; name: string;
   reference_image: string | null; fingerprint: string | null; version: number; active: boolean;
   questions: TemplateQuestion[]};
@@ -201,3 +216,13 @@ export function fileAsBase64(file: File): Promise<string> {
     reader.readAsDataURL(file);
   });
 }
+
+export type AnswerCrop = {binding_id:string;id:string;question_no:string;answer_type:string;region_index:number;crop_path:string;
+  normalized_bbox:string;pixel_bbox:string;width:number;height:number;template_version:number};
+export type LabRun = {id:string;crop_id:string;provider:string;model:string;model_revision:string|null;
+  text:string|null;normalized_candidate:string|null;confidence:number|null;latency_ms:number;
+  status:string;error_code:string|null;error:string|null;metadata:Record<string,unknown>};
+export type LabDetail = {page:PageRecord & {processing_status:string;processing_warning:string|null;
+  processing_error:string|null;template_binding_id:string|null};binding:{id:string;page_template_id:string;template_version:number;snapshot:PageTemplate}|null;
+  crops:AnswerCrop[];runs:LabRun[]};
+export const imageUrl = (kind:"reference"|"processed"|"crop",id:string) => `${API_BASE}/api/images/${kind}/${id}`;

@@ -158,7 +158,7 @@ def test_provider_health_missing_and_load_error(tmp_path):
     with pytest.raises(ModelNotInstalled):
         registry.get("tiny-ocr").execute(RecognitionRequest("/tmp/test.png", "integer", "integer"))
     manager.install_model("tiny-ocr", background=False)
-    assert registry.health("tiny-ocr")["state"] == "AVAILABLE_UNLOADED"
+    assert registry.health("tiny-ocr")["state"] == "LOADABLE"
     assert registry.health("tiny-ocr", load=True)["state"] == "MODEL_LOAD_FAILED"
 
 
@@ -182,7 +182,7 @@ def test_template_migration_crud_and_relationships(tmp_path):
     database = Database(tmp_path / "db.sqlite3")
     service = TemplateService(database)
     with database.connection() as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 3
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 4
     group = service.create_template_group("课本", "三年级", "上", "数学")
     assert service.list_template_groups()[0]["id"] == group["id"]
     page = service.create_page_template(group["id"], 1, "第一课")
@@ -207,7 +207,7 @@ def test_template_migration_preserves_p2_data(tmp_path):
     connection.close()
     database = Database(db_path)
     with database.connection() as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 3
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 4
         assert connection.execute("SELECT name FROM classes WHERE id='kept'").fetchone()[0] == "Existing class"
 
 

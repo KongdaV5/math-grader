@@ -6,14 +6,20 @@ use tauri::Manager;
 
 struct LocalServiceProcess(Mutex<Option<Child>>);
 
-impl Drop for LocalServiceProcess {
-    fn drop(&mut self) {
+impl LocalServiceProcess {
+    fn stop(&self) {
         if let Ok(mut child) = self.0.lock() {
-            if let Some(process) = child.as_mut() {
+            if let Some(mut process) = child.take() {
                 let _ = process.kill();
                 let _ = process.wait();
             }
         }
+    }
+}
+
+impl Drop for LocalServiceProcess {
+    fn drop(&mut self) {
+        self.stop();
     }
 }
 
@@ -44,7 +50,13 @@ fn spawn_local_service(app: &tauri::AppHandle) -> Result<Child, String> {
         .map_err(|error| format!("Cannot locate app data directory: {error}"))?;
     let home = app.path().home_dir().map_err(|error| format!("Cannot locate home directory: {error}"))?;
     let standard_dir = home.join("Library/Application Support/MathGrader");
-    let data_dir = if !standard_dir.join("data/math-grader.sqlite3").is_file()
+    let data_dir = if let Some(override_dir) = std::env::var_os("MATH_GRADER_DATA_DIR") {
+        let path = PathBuf::from(override_dir);
+        if !path.is_absolute() {
+            return Err("MATH_GRADER_DATA_DIR must be an absolute path".to_string());
+        }
+        path
+    } else if !standard_dir.join("data/math-grader.sqlite3").is_file()
         && legacy_dir.join("math-grader.sqlite3").is_file() {
         legacy_dir
     } else {
@@ -83,13 +95,18 @@ fn spawn_local_service(app: &tauri::AppHandle) -> Result<Child, String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .setup(|app| {
             let child = spawn_local_service(app.handle())
                 .map_err(|message| std::io::Error::new(std::io::ErrorKind::Other, message))?;
             app.manage(LocalServiceProcess(Mutex::new(Some(child))));
             Ok(())
         })
-        .run(tauri::generate_context!())
+        .build(tauri::generate_context!())
         .expect("error while running Math Grader desktop app");
+    app.run(|app_handle, event| {
+        if let tauri::RunEvent::Exit = event {
+            app_handle.state::<LocalServiceProcess>().stop();
+        }
+    });
 }

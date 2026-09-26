@@ -1,3 +1,4 @@
+import { TemplateEditor } from "./TemplateEditor";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, fileAsBase64, type Assignment, type ClassRecord, type ModelStatus, type Overview,
   type PageTemplate, type ProviderHealth, type Student, type Submission, type SystemInfo, type TemplateGroup } from "./api";
@@ -128,6 +129,7 @@ export function ModelCenterPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
   const load = useCallback(() => { void api.models().then((rows) => {
+    rows.filter((item)=>item.state==="INSTALLED").forEach((item)=>{void api.modelHealth(item.model.id).then((value)=>setHealth((old)=>({...old,[item.model.id]:value}))).catch(()=>{});});
     setModels(rows);
     setHealth((old) => Object.fromEntries(Object.entries(old).filter(([id]) =>
       rows.some((item) => item.model.id === id && item.state === "INSTALLED"))));
@@ -159,7 +161,7 @@ export function ModelCenterPage() {
             {state === "ERROR" && <button className="button primary" disabled={busy === model.id} onClick={() => void action(model.id, "retry")}>重试</button>}
             {state === "ERROR" && path && <button className="button destructive" onClick={() => {if (window.confirm(`删除 ${model.display_name} 的无效本地目录？`)) void action(model.id, "remove");}}>清理无效目录</button>}
             {["QUEUED", "DOWNLOADING"].includes(state) && <button className="button secondary" onClick={() => void action(model.id, "cancel")}>取消</button>}
-            {state === "INSTALLED" && <><button className="button secondary" onClick={() => void api.modelHealth(model.id).then((result) => setHealth((old) => ({...old, [model.id]: result}))).catch((e: Error) => setError(e.message))}>健康检查</button>
+            {state === "INSTALLED" && <><button className="button secondary" onClick={() => void api.modelAction(model.id,"health",{load:true}).then((result) => setHealth((old) => ({...old, [model.id]: result as ProviderHealth}))).catch((e: Error) => setError(e.message))}>健康检查</button>
               <button className="button secondary" onClick={() => void action(model.id, "open")}>打开目录</button>
               <button className="button destructive" onClick={() => {if (window.confirm(`删除 ${model.display_name} 的本地文件？`)) void action(model.id, "remove");}}>删除</button></>}
           </div>
@@ -215,9 +217,7 @@ export function TemplatesPage() {
     <section className="product-card"><h2>页面详情</h2>{detail ? <><p className="details-line">第 {detail.page_number} 页 · {detail.name} · {detail.active ? "启用" : "停用"}</p>
       <p className="details-line">参考图：{detail.reference_image ?? "尚未导入"}</p>
       <label className="button secondary import-button">导入参考页<input type="file" accept="image/*" disabled={busy} onChange={(e) => {void importReference(e.target.files?.[0]); e.target.value = "";}} /></label>
-      <h3>题目与答案区域</h3>{detail.questions.length ? <ul className="simple-list">{detail.questions.map((question) =>
-        <li key={question.id}><div><strong>第 {question.question_no} 题 · {question.answer_type}</strong><small>答案：{question.correct_answer ?? "未设置"} · {question.score} 分</small></div>
-          <span>{question.regions.length ? question.regions.map((region) => `区域 ${region.region_index}: (${region.x}, ${region.y}, ${region.width}, ${region.height})`).join("；") : "尚无答案区域"}</span></li>)}</ul> : <p className="empty-copy">尚无题目。基础数据可通过本地 API 创建，拖框编辑器将在后续阶段加入。</p>}</> : <p className="empty-copy">选择或创建一个参考页。</p>}</section>
+      <TemplateEditor detail={detail} reload={() => void api.templatePage(pageId).then(setDetail).catch((e:Error)=>setError(e.message))} /></> : <p className="empty-copy">选择或创建一个参考页。</p>}</section>
   </div>;
 }
 
@@ -225,11 +225,13 @@ export function SettingsPage() {
   const [info, setInfo] = useState<SystemInfo | null>(null);
   const [error, setError] = useState("");
   useEffect(() => {void api.system().then(setInfo).catch((e: Error) => setError(e.message));}, []);
-  const pathLabels: Record<string, string> = {root:"Application Support",data:"数据",originals:"原图",processed:"处理图",models:"模型",cache:"缓存",logs:"日志",config:"配置"};
+  const pathLabels: Record<string, string> = {root:"Application Support",data:"数据",originals:"原图",processed:"处理图",crops:"答案裁图",models:"模型",cache:"缓存",logs:"日志",config:"配置"};
   return <div className="page-stack">{error && <Message text={error} error />}{!info && !error && <Message text="正在读取运行环境…" />}
     {info && <><section className="product-card"><h2>运行环境</h2><p>Python {info.runtime_version} · {info.python_supported ? "满足 3.9+ 要求" : "版本低于 3.9"}</p>
       <p className="details-line">识别配置版本 {info.recognition_config.schema_version} · 当前路由 {info.recognition_config.routes.join("、") || "无"}</p>
-      <p className="details-line">模型候选路由：{Object.keys(info.recognition_config.model_routes).length ? "已配置" : "尚未启用"}</p></section>
+      <p className="details-line">模型候选路由：{Object.keys(info.recognition_config.model_routes).length ? "已配置" : "识别实验室使用候选路由"}</p>
+      <ul className="simple-list">{Object.entries(info.dependencies).map(([name,ready])=><li key={name}><strong>{name}</strong><span>{ready ? "可用" : "缺失"}</span></li>)}</ul></section>
+      <section className="product-card"><h2>高级工具</h2><p>检查模板裁图、模型输出及运行历史。</p><a className="button secondary" href="#/lab">打开识别实验室</a></section>
       <section className="product-card"><h2>本地目录</h2><ul className="simple-list">{Object.entries(pathLabels).map(([key, label]) =>
         <li key={key}><div><strong>{label}</strong><small className="path-value">{info.paths[key]}</small></div>
           <button className="button secondary" onClick={() => void api.openDirectory(key).catch((e: Error) => setError(e.message))}>在 Finder 中打开</button></li>)}</ul></section></>}

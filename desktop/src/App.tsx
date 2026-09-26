@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { RecognitionLabPage } from "./RecognitionLabPage";
 import { GradingPage } from "./GradingPage";
 import { api } from "./api";
 import { AnalyticsPage, AssignmentsPage, DashboardPage, ModelCenterPage, ReviewPage,
@@ -12,6 +13,7 @@ const pages = [
   {id: "review", title: "人工复核", description: "后续启用", marker: "✓"},
   {id: "templates", title: "模板", description: "教材与参考页", marker: "▧"},
   {id: "analytics", title: "学习分析", description: "真实数据概览", marker: "▥"},
+  {id: "lab", title: "识别实验室", description: "高级检查与模型对照", marker: "◬"},
   {id: "models", title: "模型中心", description: "候选模型与安装", marker: "◫"},
   {id: "settings", title: "设置", description: "本地目录与运行环境", marker: "⚙"},
 ] as const;
@@ -37,13 +39,13 @@ function App() {
   const body = {
     home: <DashboardPage />, grading: <GradingPage />, assignments: <AssignmentsPage />,
     students: <StudentsPage />, review: <ReviewPage />, templates: <TemplatesPage />,
-    analytics: <AnalyticsPage />, models: <ModelCenterPage />, settings: <SettingsPage />,
+    analytics: <AnalyticsPage />, lab: <RecognitionLabPage />, models: <ModelCenterPage />, settings: <SettingsPage />,
   }[page];
   return <div className="app-frame">
     <aside className="app-sidebar"><a className="app-brand" href="#/home"><span className="app-brand-icon">数</span><span><strong>Math Grader</strong><small>本地作业批改</small></span></a>
-      <nav aria-label="主导航">{pages.map((item) => <a key={item.id} href={`#/${item.id}`} className={page === item.id ? "active" : ""} aria-current={page === item.id ? "page" : undefined}>
+      <nav aria-label="主导航">{pages.filter((item) => item.id !== "lab").map((item) => <a key={item.id} href={`#/${item.id}`} className={page === item.id ? "active" : ""} aria-current={page === item.id ? "page" : undefined}>
         <span className="nav-marker" aria-hidden="true">{item.marker}</span>{item.title}</a>)}</nav>
-      <div className="sidebar-foot"><span className={`service-dot ${online ? "online-dot" : ""}`} />{online ? "本地服务已连接" : "本地服务未连接"}<small>P3-X1 · 本地运行</small></div>
+      <div className="sidebar-foot"><span className={`service-dot ${online ? "online-dot" : ""}`} />{online ? "本地服务已连接" : "本地服务未连接"}<small>P4-X1 · 本地运行</small></div>
     </aside>
     <div className="app-main"><header className="page-header"><div><p className="eyebrow">MATH GRADER / {selected.id.toUpperCase()}</p><h1>{selected.title}</h1><p>{selected.description}</p></div>
       <span className={`service-pill ${online ? "online" : "offline"}`}><span className="service-dot" />{online ? "本地服务正常" : "服务未连接"}</span></header>

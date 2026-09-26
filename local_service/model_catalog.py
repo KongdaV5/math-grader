@@ -6,9 +6,9 @@ import re
 
 
 PROVIDER_CAPABILITIES = {
-    "ppocr_onnx": {"ocr", "integer", "decimal", "short_text"},
-    "paddle_formula": {"formula"},
-    "mlx_vlm": {"vision", "integer", "decimal", "short_text", "formula"},
+    "ppocr_onnx": {"ocr", "integer", "decimal", "short_text", "choice", "boolean", "comparison_symbol", "sequence", "multi_blank"},
+    "paddle_formula": {"formula", "fraction"},
+    "mlx_vlm": {"vision", "integer", "decimal", "short_text", "formula", "fraction", "choice", "boolean", "comparison_symbol", "sequence", "multi_blank"},
 }
 MODEL_ID = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 REPO_ID = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")

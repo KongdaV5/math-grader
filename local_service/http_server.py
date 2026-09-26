@@ -45,7 +45,7 @@ class ServiceRequestHandler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         self.send_response(204)
         self._cors_headers()
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.send_header("Access-Control-Max-Age", "600")
         self.end_headers()
@@ -55,6 +55,15 @@ class ServiceRequestHandler(BaseHTTPRequestHandler):
             segments = self._segments()
             if segments == ["health"]:
                 return self._send_json(200, self.server.service.health())
+            if len(segments)==4 and segments[:2]==["api","images"]:
+                return self._send_image(*self.server.service.slice.image_bytes(segments[2],segments[3]))
+            if len(segments)==4 and segments[:2]==["api","pages"]:
+                if segments[3]=="detail":
+                    return self._send_json(200,self.server.service.slice.page_detail(segments[2]))
+                if segments[3]=="match":
+                    return self._send_json(200,self.server.service.slice.match_templates(segments[2]))
+                if segments[3]=="predictions":
+                    return self._send_json(200,self.server.service.slice.export_predictions(segments[2]))
             if segments == ["api", "overview"]:
                 return self._send_json(200, self.server.service.overview())
             if segments == ["api", "system"]:
@@ -142,6 +151,15 @@ class ServiceRequestHandler(BaseHTTPRequestHandler):
                 return self._send_json(201, service.templates.create_answer_region(
                     segments[3], body.get("region_index"), body.get("x"), body.get("y"),
                     body.get("width"), body.get("height"), body.get("metadata")))
+            if segments == ["api", "lab", "import"]:
+                filename,content=service.decode_image_payload(body)
+                return self._send_json(201,service.slice.import_lab_image(filename,content))
+            if len(segments)==4 and segments[:2]==["api","crops"] and segments[3]=="runs":
+                return self._send_json(202,service.slice.queue_recognition(segments[2],body.get("model_id")))
+            if len(segments)==4 and segments[:2]==["api","pages"] and segments[3]=="bind":
+                return self._send_json(200,service.slice.bind_template(segments[2],body.get("template_id")))
+            if len(segments)==4 and segments[:2]==["api","pages"] and segments[3]=="crops":
+                return self._send_json(201,service.slice.create_crops(segments[2]))
             if len(segments) == 4 and segments[:2] == ["api", "pages"] and segments[3] == "process":
                 return self._send_json(200, service.process_page_image(segments[2]))
             if segments == ["api", "capture", "session", "start"]:
@@ -184,6 +202,37 @@ class ServiceRequestHandler(BaseHTTPRequestHandler):
             return self._send_json(404, {"error": "Route not found"})
         except Exception as error:
             return self._handle_error(error)
+
+    def do_PATCH(self):
+        try:
+            parts=self._segments();body=self._read_json();service=self.server.service.templates
+            if len(parts)==4 and parts[:3]==["api","templates","questions"]:
+                return self._send_json(200,service.update_question(parts[3],body))
+            if len(parts)==4 and parts[:3]==["api","templates","regions"]:
+                return self._send_json(200,service.update_region(parts[3],body))
+            return self._send_json(404,{"error":"Route not found"})
+        except Exception as error:
+            return self._handle_error(error)
+
+    def do_DELETE(self):
+        try:
+            parts=self._segments();service=self.server.service.templates
+            if len(parts)==4 and parts[:3]==["api","templates","questions"]:
+                return self._send_json(200,service.delete_question(parts[3]))
+            if len(parts)==4 and parts[:3]==["api","templates","regions"]:
+                return self._send_json(200,service.delete_region(parts[3]))
+            return self._send_json(404,{"error":"Route not found"})
+        except Exception as error:
+            return self._handle_error(error)
+
+    def _send_image(self,mime,data):
+        self.send_response(200)
+        self._cors_headers()
+        self.send_header("Content-Type",mime)
+        self.send_header("Content-Length",str(len(data)))
+        self.send_header("Cache-Control","no-store")
+        self.send_header("X-Content-Type-Options","nosniff")
+        self.end_headers();self.wfile.write(data)
 
     def log_message(self, format_string, *args):
         logger.info("%s - %s", self.address_string(), format_string % args)

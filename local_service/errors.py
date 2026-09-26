@@ -54,3 +54,22 @@ class TemplateNotFound(DomainError):
 class InvalidAnswerRegion(DomainError):
     code = "INVALID_ANSWER_REGION"
     status = 400
+
+
+class NoConfidentTemplateMatch(DomainError):
+    code = "NO_CONFIDENT_TEMPLATE_MATCH"
+    status = 422
+
+
+class CropFailed(DomainError):
+    code = "CROP_FAILED"
+    status = 422
+
+
+class RecognitionFailed(DomainError):
+    code = "RECOGNITION_FAILED"
+    status = 422
+
+
+class InvalidRecognitionOutput(RecognitionFailed):
+    code = "INVALID_RECOGNITION_OUTPUT"

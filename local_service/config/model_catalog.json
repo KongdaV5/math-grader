@@ -2,24 +2,279 @@
   "catalog_schema_version": 1,
   "models": [
     {
-      "id": "pp-ocrv6-small", "display_name": "PP-OCRv6 Small", "category": "ocr", "description": "轻量 OCR 候选；检测与识别双模型", "provider_type": "ppocr_onnx", "runtime": "onnxruntime", "source": "PaddlePaddle 官方 Hugging Face 仓库", "source_repo": ["PaddlePaddle/PP-OCRv6_small_det_onnx", "PaddlePaddle/PP-OCRv6_small_rec_onnx"], "upstream_repo": null, "requested_revision": "main", "artifact_kind": "onnx_bundle", "approximate_size_bytes": 33000000, "license": "Apache-2.0", "architecture": "PP-OCRv6 det+rec", "required": false, "recommended": "testing_candidate", "platform": ["macos-arm64", "macos-x64"], "capabilities": ["integer", "decimal", "short_text", "ocr"], "metadata": {"publisher": "PaddlePaddle"},
-      "artifacts": [{"name": "det", "repo": "PaddlePaddle/PP-OCRv6_small_det_onnx", "files": ["inference.onnx", "inference.yml", "inference.json"]}, {"name": "rec", "repo": "PaddlePaddle/PP-OCRv6_small_rec_onnx", "files": ["inference.onnx", "inference.yml", "inference.json"]}]
+      "id": "pp-ocrv6-small",
+      "display_name": "PP-OCRv6 Small",
+      "category": "ocr",
+      "description": "轻量 OCR 候选；检测与识别双模型",
+      "provider_type": "ppocr_onnx",
+      "runtime": "onnxruntime",
+      "source": "PaddlePaddle 官方 Hugging Face 仓库",
+      "source_repo": [
+        "PaddlePaddle/PP-OCRv6_small_det_onnx",
+        "PaddlePaddle/PP-OCRv6_small_rec_onnx"
+      ],
+      "upstream_repo": null,
+      "requested_revision": "main",
+      "artifact_kind": "onnx_bundle",
+      "approximate_size_bytes": 33000000,
+      "license": "Apache-2.0",
+      "architecture": "PP-OCRv6 det+rec",
+      "required": false,
+      "recommended": "testing_candidate",
+      "platform": [
+        "macos-arm64",
+        "macos-x64"
+      ],
+      "capabilities": [
+        "integer",
+        "decimal",
+        "short_text",
+        "ocr",
+        "choice",
+        "boolean",
+        "comparison_symbol",
+        "sequence",
+        "multi_blank"
+      ],
+      "metadata": {
+        "publisher": "PaddlePaddle"
+      },
+      "artifacts": [
+        {
+          "name": "det",
+          "repo": "PaddlePaddle/PP-OCRv6_small_det_onnx",
+          "files": [
+            "inference.onnx",
+            "inference.yml",
+            "inference.json"
+          ]
+        },
+        {
+          "name": "rec",
+          "repo": "PaddlePaddle/PP-OCRv6_small_rec_onnx",
+          "files": [
+            "inference.onnx",
+            "inference.yml",
+            "inference.json"
+          ]
+        }
+      ]
     },
     {
-      "id": "pp-ocrv6-medium", "display_name": "PP-OCRv6 Medium", "category": "ocr", "description": "中型 OCR 候选；检测与识别双模型", "provider_type": "ppocr_onnx", "runtime": "onnxruntime", "source": "PaddlePaddle 官方 Hugging Face 仓库", "source_repo": ["PaddlePaddle/PP-OCRv6_medium_det_onnx", "PaddlePaddle/PP-OCRv6_medium_rec_onnx"], "upstream_repo": null, "requested_revision": "main", "artifact_kind": "onnx_bundle", "approximate_size_bytes": 150000000, "license": "Apache-2.0", "architecture": "PP-OCRv6 det+rec", "required": false, "recommended": "testing_candidate", "platform": ["macos-arm64", "macos-x64"], "capabilities": ["integer", "decimal", "short_text", "ocr"], "metadata": {"publisher": "PaddlePaddle"},
-      "artifacts": [{"name": "det", "repo": "PaddlePaddle/PP-OCRv6_medium_det_onnx", "files": ["inference.onnx", "inference.yml", "inference.json"]}, {"name": "rec", "repo": "PaddlePaddle/PP-OCRv6_medium_rec_onnx", "files": ["inference.onnx", "inference.yml", "inference.json"]}]
+      "id": "pp-ocrv6-medium",
+      "display_name": "PP-OCRv6 Medium",
+      "category": "ocr",
+      "description": "中型 OCR 候选；检测与识别双模型",
+      "provider_type": "ppocr_onnx",
+      "runtime": "onnxruntime",
+      "source": "PaddlePaddle 官方 Hugging Face 仓库",
+      "source_repo": [
+        "PaddlePaddle/PP-OCRv6_medium_det_onnx",
+        "PaddlePaddle/PP-OCRv6_medium_rec_onnx"
+      ],
+      "upstream_repo": null,
+      "requested_revision": "main",
+      "artifact_kind": "onnx_bundle",
+      "approximate_size_bytes": 150000000,
+      "license": "Apache-2.0",
+      "architecture": "PP-OCRv6 det+rec",
+      "required": false,
+      "recommended": "testing_candidate",
+      "platform": [
+        "macos-arm64",
+        "macos-x64"
+      ],
+      "capabilities": [
+        "integer",
+        "decimal",
+        "short_text",
+        "ocr",
+        "choice",
+        "boolean",
+        "comparison_symbol",
+        "sequence",
+        "multi_blank"
+      ],
+      "metadata": {
+        "publisher": "PaddlePaddle"
+      },
+      "artifacts": [
+        {
+          "name": "det",
+          "repo": "PaddlePaddle/PP-OCRv6_medium_det_onnx",
+          "files": [
+            "inference.onnx",
+            "inference.yml",
+            "inference.json"
+          ]
+        },
+        {
+          "name": "rec",
+          "repo": "PaddlePaddle/PP-OCRv6_medium_rec_onnx",
+          "files": [
+            "inference.onnx",
+            "inference.yml",
+            "inference.json"
+          ]
+        }
+      ]
     },
     {
-      "id": "pp-formulanet-plus-m", "display_name": "PP-FormulaNet_plus-M", "category": "formula", "description": "数学公式识别候选", "provider_type": "paddle_formula", "runtime": "paddlepaddle", "source": "PaddlePaddle 官方 Hugging Face 仓库", "source_repo": ["PaddlePaddle/PP-FormulaNet_plus-M"], "upstream_repo": null, "requested_revision": "main", "artifact_kind": "paddle_inference", "approximate_size_bytes": 650000000, "license": "Apache-2.0", "architecture": "PP-FormulaNet", "required": false, "recommended": "optional", "platform": ["macos-arm64", "macos-x64"], "capabilities": ["formula"], "metadata": {"publisher": "PaddlePaddle"},
-      "artifacts": [{"name": "model", "repo": "PaddlePaddle/PP-FormulaNet_plus-M", "files": ["inference.json", "inference.pdiparams", "inference.yml", "config.json"]}]
+      "id": "pp-formulanet-plus-m",
+      "display_name": "PP-FormulaNet_plus-M",
+      "category": "formula",
+      "description": "数学公式识别候选",
+      "provider_type": "paddle_formula",
+      "runtime": "paddlepaddle",
+      "source": "PaddlePaddle 官方 Hugging Face 仓库",
+      "source_repo": [
+        "PaddlePaddle/PP-FormulaNet_plus-M"
+      ],
+      "upstream_repo": null,
+      "requested_revision": "main",
+      "artifact_kind": "paddle_inference",
+      "approximate_size_bytes": 650000000,
+      "license": "Apache-2.0",
+      "architecture": "PP-FormulaNet",
+      "required": false,
+      "recommended": "optional",
+      "platform": [
+        "macos-arm64",
+        "macos-x64"
+      ],
+      "capabilities": [
+        "formula",
+        "fraction"
+      ],
+      "metadata": {
+        "publisher": "PaddlePaddle"
+      },
+      "artifacts": [
+        {
+          "name": "model",
+          "repo": "PaddlePaddle/PP-FormulaNet_plus-M",
+          "files": [
+            "inference.json",
+            "inference.pdiparams",
+            "inference.yml",
+            "config.json"
+          ]
+        }
+      ]
     },
     {
-      "id": "qwen3-vl-4b-mlx-4bit", "display_name": "Qwen3-VL 4B · MLX 4bit", "category": "vision", "description": "视觉复核候选；MLX Community 转换版", "provider_type": "mlx_vlm", "runtime": "mlx-vlm", "source": "MLX Community 转换版", "source_repo": ["mlx-community/Qwen3-VL-4B-Instruct-4bit"], "upstream_repo": "Qwen/Qwen3-VL-4B-Instruct", "requested_revision": "main", "artifact_kind": "mlx_safetensors", "approximate_size_bytes": 3500000000, "license": "Apache-2.0", "architecture": "Qwen3-VL", "required": false, "recommended": "optional", "platform": ["macos-arm64"], "capabilities": ["vision", "integer", "decimal", "short_text", "formula"], "metadata": {"original_publisher": "Qwen", "runtime_conversion": "MLX Community"},
-      "artifacts": [{"name": "model", "repo": "mlx-community/Qwen3-VL-4B-Instruct-4bit", "files": ["config.json", "tokenizer.json", "preprocessor_config.json"], "patterns": ["*.json", "*.safetensors", "*.jinja", "*.txt"]}]
+      "id": "qwen3-vl-4b-mlx-4bit",
+      "display_name": "Qwen3-VL 4B · MLX 4bit",
+      "category": "vision",
+      "description": "视觉复核候选；MLX Community 转换版",
+      "provider_type": "mlx_vlm",
+      "runtime": "mlx-vlm",
+      "source": "MLX Community 转换版",
+      "source_repo": [
+        "mlx-community/Qwen3-VL-4B-Instruct-4bit"
+      ],
+      "upstream_repo": "Qwen/Qwen3-VL-4B-Instruct",
+      "requested_revision": "main",
+      "artifact_kind": "mlx_safetensors",
+      "approximate_size_bytes": 3500000000,
+      "license": "Apache-2.0",
+      "architecture": "Qwen3-VL",
+      "required": false,
+      "recommended": "optional",
+      "platform": [
+        "macos-arm64"
+      ],
+      "capabilities": [
+        "vision",
+        "integer",
+        "decimal",
+        "short_text",
+        "formula",
+        "fraction",
+        "choice",
+        "boolean",
+        "comparison_symbol",
+        "sequence",
+        "multi_blank"
+      ],
+      "metadata": {
+        "original_publisher": "Qwen",
+        "runtime_conversion": "MLX Community"
+      },
+      "artifacts": [
+        {
+          "name": "model",
+          "repo": "mlx-community/Qwen3-VL-4B-Instruct-4bit",
+          "files": [
+            "config.json",
+            "tokenizer.json",
+            "preprocessor_config.json"
+          ],
+          "patterns": [
+            "*.json",
+            "*.safetensors",
+            "*.jinja",
+            "*.txt"
+          ]
+        }
+      ]
     },
     {
-      "id": "qwen3-vl-8b-mlx-4bit", "display_name": "Qwen3-VL 8B · MLX 4bit", "category": "vision", "description": "高资源视觉复核候选；MLX Community 转换版", "provider_type": "mlx_vlm", "runtime": "mlx-vlm", "source": "MLX Community 转换版", "source_repo": ["mlx-community/Qwen3-VL-8B-Instruct-4bit"], "upstream_repo": "Qwen/Qwen3-VL-8B-Instruct", "requested_revision": "main", "artifact_kind": "mlx_safetensors", "approximate_size_bytes": 6100000000, "license": "Apache-2.0", "architecture": "Qwen3-VL", "required": false, "recommended": "optional", "platform": ["macos-arm64"], "capabilities": ["vision", "integer", "decimal", "short_text", "formula"], "metadata": {"original_publisher": "Qwen", "runtime_conversion": "MLX Community"},
-      "artifacts": [{"name": "model", "repo": "mlx-community/Qwen3-VL-8B-Instruct-4bit", "files": ["config.json", "tokenizer.json", "preprocessor_config.json"], "patterns": ["*.json", "*.safetensors", "*.jinja", "*.txt"]}]
+      "id": "qwen3-vl-8b-mlx-4bit",
+      "display_name": "Qwen3-VL 8B · MLX 4bit",
+      "category": "vision",
+      "description": "高资源视觉复核候选；MLX Community 转换版",
+      "provider_type": "mlx_vlm",
+      "runtime": "mlx-vlm",
+      "source": "MLX Community 转换版",
+      "source_repo": [
+        "mlx-community/Qwen3-VL-8B-Instruct-4bit"
+      ],
+      "upstream_repo": "Qwen/Qwen3-VL-8B-Instruct",
+      "requested_revision": "main",
+      "artifact_kind": "mlx_safetensors",
+      "approximate_size_bytes": 6100000000,
+      "license": "Apache-2.0",
+      "architecture": "Qwen3-VL",
+      "required": false,
+      "recommended": "optional",
+      "platform": [
+        "macos-arm64"
+      ],
+      "capabilities": [
+        "vision",
+        "integer",
+        "decimal",
+        "short_text",
+        "formula",
+        "fraction",
+        "choice",
+        "boolean",
+        "comparison_symbol",
+        "sequence",
+        "multi_blank"
+      ],
+      "metadata": {
+        "original_publisher": "Qwen",
+        "runtime_conversion": "MLX Community"
+      },
+      "artifacts": [
+        {
+          "name": "model",
+          "repo": "mlx-community/Qwen3-VL-8B-Instruct-4bit",
+          "files": [
+            "config.json",
+            "tokenizer.json",
+            "preprocessor_config.json"
+          ],
+          "patterns": [
+            "*.json",
+            "*.safetensors",
+            "*.jinja",
+            "*.txt"
+          ]
+        }
+      ]
     }
   ]
 }

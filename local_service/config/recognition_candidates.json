@@ -1,11 +1,57 @@
 {
   "schema_version": 1,
   "model_routes": {
-    "integer": {"primary": "pp-ocrv6-small", "fallback": "qwen3-vl-4b-mlx-4bit"},
-    "decimal": {"primary": "pp-ocrv6-small", "fallback": "qwen3-vl-4b-mlx-4bit"},
-    "short_text": {"primary": "pp-ocrv6-medium", "fallback": "qwen3-vl-4b-mlx-4bit"},
-    "formula": {"primary": "pp-formulanet-plus-m", "fallback": "qwen3-vl-4b-mlx-4bit"}
+    "integer": {
+      "primary": "pp-ocrv6-small",
+      "fallback": "qwen3-vl-4b-mlx-4bit"
+    },
+    "decimal": {
+      "primary": "pp-ocrv6-small",
+      "fallback": "qwen3-vl-4b-mlx-4bit"
+    },
+    "short_text": {
+      "primary": "pp-ocrv6-medium",
+      "fallback": "qwen3-vl-4b-mlx-4bit"
+    },
+    "formula": {
+      "primary": "pp-formulanet-plus-m",
+      "fallback": "qwen3-vl-4b-mlx-4bit"
+    },
+    "choice": {
+      "primary": "pp-ocrv6-small",
+      "fallback": "qwen3-vl-4b-mlx-4bit"
+    },
+    "boolean": {
+      "primary": "pp-ocrv6-small",
+      "fallback": "qwen3-vl-4b-mlx-4bit"
+    },
+    "comparison_symbol": {
+      "primary": "pp-ocrv6-small",
+      "fallback": "qwen3-vl-4b-mlx-4bit"
+    },
+    "sequence": {
+      "primary": "pp-ocrv6-small",
+      "fallback": "qwen3-vl-4b-mlx-4bit"
+    },
+    "multi_blank": {
+      "primary": "pp-ocrv6-small",
+      "fallback": "qwen3-vl-4b-mlx-4bit"
+    },
+    "fraction": {
+      "primary": "pp-formulanet-plus-m",
+      "fallback": "qwen3-vl-4b-mlx-4bit"
+    }
   },
-  "recognition": {"default": {"primary": "mock_primary"}},
-  "providers": {"mock_primary": {"type": "mock", "model": "mock-v1", "text": "23"}}
+  "recognition": {
+    "default": {
+      "primary": "mock_primary"
+    }
+  },
+  "providers": {
+    "mock_primary": {
+      "type": "mock",
+      "model": "mock-v1",
+      "text": "23"
+    }
+  }
 }

@@ -283,7 +283,7 @@ def test_finish_is_idempotent_advances_only_after_confirmation_and_allows_queue_
         assert duplicate_first["already_finished"] is True
         assert duplicate_first["current"]["current"]["submission_id"] == second_submission
         with service.database.connection() as connection:
-            assert connection.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] == 1
+            assert connection.execute("SELECT COUNT(*) FROM jobs WHERE kind='SUBMISSION'").fetchone()[0] == 1
 
         release_processing.set()
         deadline = time.time() + 3
@@ -300,7 +300,7 @@ def test_finish_is_idempotent_advances_only_after_confirmation_and_allows_queue_
         assert repeated_last["current"]["complete"] is True
         with service.database.connection() as connection:
             jobs = connection.execute(
-                "SELECT submission_id, status FROM jobs ORDER BY sequence"
+                "SELECT submission_id, status FROM jobs WHERE kind='SUBMISSION' ORDER BY sequence"
             ).fetchall()
         assert [row["submission_id"] for row in jobs] == [first_submission, second_submission]
         assert len({row["submission_id"] for row in jobs}) == 2
