@@ -21,6 +21,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("app", type=Path)
     parser.add_argument("--git-sha", required=True)
+    parser.add_argument("--frontend-dist", type=Path, required=True)
     args = parser.parse_args()
     app = args.app.resolve()
     resources = app / "Contents/Resources"
@@ -56,10 +57,12 @@ def main():
         verify_arch(candidate)
     weights = list(runtime.rglob("*.safetensors"))
     require(not weights, "Model weights must remain in Application Support, not the app bundle")
+    frontend_assets = list(args.frontend_dist.glob("assets/*.js"))
+    require(frontend_assets, "Built frontend JavaScript is missing")
     javascript = "\n".join(path.read_text(encoding="utf-8", errors="ignore")
-                            for path in (resources / "assets").glob("*.js"))
+                            for path in frontend_assets)
     require("人工复核" in javascript and "自动分析本次试卷" in javascript,
-            "Built frontend does not contain the P5 teacher workflow UI")
+            "Tauri frontend build does not contain the P5 teacher workflow UI")
     print(json.dumps({
         "app": str(app),
         "bundle_id": plist["CFBundleIdentifier"],
@@ -70,7 +73,7 @@ def main():
         "git_sha": manifest["git_sha"],
         "dependencies": manifest["dependencies"],
         "model_weights_in_bundle": len(weights),
-        "p5_ui": "present",
+        "p5_ui": "present in the frontend embedded by this Tauri build",
         "capture_page": "present",
     }, ensure_ascii=False, indent=2))
 

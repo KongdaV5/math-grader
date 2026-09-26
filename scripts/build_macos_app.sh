@@ -36,7 +36,8 @@ if [[ ! -d "$APP" ]]; then
 fi
 codesign --force --deep --sign - --timestamp=none "$APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
-"$BUILD_ENV/bin/python" "$ROOT/scripts/verify_macos_app.py" "$APP" --git-sha "$GIT_SHA"
+"$BUILD_ENV/bin/python" "$ROOT/scripts/verify_macos_app.py" "$APP" \
+  --git-sha "$GIT_SHA" --frontend-dist "$DESKTOP/dist"
 "$BUILD_ENV/bin/python" "$ROOT/scripts/install_macos_app.py" "$APP"
 codesign --verify --deep --strict "$HOME/Desktop/Math Grader.app"
 du -sh "$HOME/Desktop/Math Grader.app"
