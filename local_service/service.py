@@ -20,6 +20,7 @@ from local_service.model_manager import ModelManager
 from local_service.templates import TemplateService
 from local_service.image_pipeline import ImagePipeline
 from local_service.vertical_slice import VerticalSlice
+from local_service.teacher_workflow import TeacherWorkflow
 from importlib.util import find_spec
 from local_service.state_machine import InvalidTransition, transition
 
@@ -83,6 +84,7 @@ class MathGraderService:
         self.templates = TemplateService(self.database)
         self.image_pipeline = ImagePipeline(self.paths.processed)
         self.slice = VerticalSlice(self)
+        self.teacher_workflow = TeacherWorkflow(self)
         self.recover_interrupted_jobs()
         self.expire_orphaned_capture_sessions()
 
@@ -201,8 +203,10 @@ class MathGraderService:
             ).fetchall()
         return [self._row(row) for row in rows]
 
-    def create_assignment(self, class_id, name, assignment_date):
+    def create_assignment(self, class_id, name, assignment_date, workflow_mode="LEGACY"):
         name = self._required_text(name, "name")
+        if workflow_mode not in ("LEGACY", "TEACHER_WORKFLOW"):
+            raise ValidationError("workflow_mode must be LEGACY or TEACHER_WORKFLOW")
         try:
             assignment_date = date.fromisoformat(assignment_date).isoformat()
         except (TypeError, ValueError) as error:
@@ -210,14 +214,15 @@ class MathGraderService:
         item = {
             "id": new_id(), "class_id": class_id, "name": name,
             "date": assignment_date, "status": "ACTIVE", "created_at": utc_now(),
+            "workflow_mode": workflow_mode,
         }
         with self.database.connection() as connection:
             self._require(connection, "classes", class_id)
             connection.execute(
                 """INSERT INTO assignments
-                   (id, class_id, name, assignment_date, status, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
-                (item["id"], class_id, name, assignment_date, item["status"], item["created_at"]),
+                   (id, class_id, name, assignment_date, status, created_at, workflow_mode)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (item["id"], class_id, name, assignment_date, item["status"], item["created_at"], workflow_mode),
             )
         return item
 
@@ -474,12 +479,14 @@ class MathGraderService:
                 raise ValidationError("Submission requires at least one page before finishing")
             now = utc_now()
             transition(connection, submission_id, "READY", now)
-            transition(connection, submission_id, "QUEUED", now)
-            connection.execute(
-                """INSERT INTO jobs (id, submission_id, status, created_at)
-                   VALUES (?, ?, 'QUEUED', ?)""",
-                (new_id(), submission_id, now),
-            )
+            assignment = self._require(connection, "assignments", submission["assignment_id"])
+            if assignment["workflow_mode"] != "TEACHER_WORKFLOW":
+                transition(connection, submission_id, "QUEUED", now)
+                connection.execute(
+                    """INSERT INTO jobs (id, submission_id, status, created_at)
+                       VALUES (?, ?, 'QUEUED', ?)""",
+                    (new_id(), submission_id, now),
+                )
         return self.get_submission(submission_id)
 
     def expire_orphaned_capture_sessions(self):
@@ -640,12 +647,14 @@ class MathGraderService:
                 if submission["page_count"] < 1:
                     raise ValidationError("Submission requires at least one page before finishing")
                 transition(connection, submission_id, "READY", now)
-                transition(connection, submission_id, "QUEUED", now)
-                connection.execute(
-                    """INSERT INTO jobs (id, submission_id, status, created_at)
-                       VALUES (?, ?, 'QUEUED', ?)""",
-                    (new_id(), submission_id, now),
-                )
+                assignment = self._require(connection, "assignments", session["assignment_id"])
+                if assignment["workflow_mode"] != "TEACHER_WORKFLOW":
+                    transition(connection, submission_id, "QUEUED", now)
+                    connection.execute(
+                        """INSERT INTO jobs (id, submission_id, status, created_at)
+                           VALUES (?, ?, 'QUEUED', ?)""",
+                        (new_id(), submission_id, now),
+                    )
                 connection.execute(
                     """UPDATE capture_session_submissions SET finished_at = ?
                        WHERE session_id = ? AND submission_id = ?""",
@@ -871,7 +880,11 @@ class MathGraderService:
 
     def get_submission(self, submission_id):
         with self.database.connection() as connection:
-            row = self._require(connection, "submissions", submission_id)
+            row = connection.execute("""SELECT s.*,st.student_no,st.name AS student_name
+                FROM submissions s JOIN students st ON st.id=s.student_id WHERE s.id=?""",
+                (submission_id,)).fetchone()
+            if row is None:
+                raise NotFound("Submission not found")
             pages = connection.execute(
                 "SELECT * FROM submission_pages WHERE submission_id = ? ORDER BY page_index",
                 (submission_id,),
@@ -894,11 +907,11 @@ class MathGraderService:
     def process_next_job(self):
         with self.database.connection() as connection:
             job = connection.execute(
-                "SELECT * FROM jobs WHERE status = 'QUEUED' ORDER BY CASE WHEN kind='SUBMISSION' THEN 0 ELSE 1 END, sequence LIMIT 1"
+                "SELECT * FROM jobs WHERE status = 'QUEUED' ORDER BY CASE kind WHEN 'IMAGE' THEN 0 WHEN 'GRADING' THEN 1 WHEN 'SUBMISSION' THEN 2 ELSE 3 END, sequence LIMIT 1"
             ).fetchone()
             if job is None:
                 return False
-            if job["kind"] == "SUBMISSION":
+            if job["kind"] in ("SUBMISSION", "GRADING"):
                 transition(connection, job["submission_id"], "PROCESSING", utc_now())
             connection.execute(
                 "UPDATE jobs SET status = 'RUNNING', started_at = ?, error = NULL WHERE id = ?",
@@ -910,6 +923,8 @@ class MathGraderService:
                 self.slice.process_page(job["page_id"])
             elif job["kind"] == "RECOGNITION":
                 self.slice.execute_run(job["run_id"])
+            elif job["kind"] == "GRADING":
+                self.teacher_workflow.process_submission(job["submission_id"])
             else:
                 self._process_submission(job["submission_id"])
             with self.database.connection() as connection:
@@ -922,7 +937,7 @@ class MathGraderService:
         except Exception as error:
             message = "{}: {}".format(type(error).__name__, error)
             with self.database.connection() as connection:
-                if job["kind"] == "SUBMISSION":
+                if job["kind"] in ("SUBMISSION", "GRADING"):
                     transition(connection, job["submission_id"], "FAILED", utc_now(), error=message)
                 connection.execute(
                     "UPDATE jobs SET status = 'FAILED', error = ?, completed_at = ? WHERE id = ?",
@@ -935,7 +950,9 @@ class MathGraderService:
             jobs = connection.execute("SELECT id, submission_id, kind, page_id, run_id FROM jobs WHERE status = 'RUNNING'").fetchall()
             now = utc_now()
             for job in jobs:
-                if job["submission_id"]:
+                if job["submission_id"] and job["kind"] == "SUBMISSION":
+                    transition(connection, job["submission_id"], "QUEUED", now)
+                elif job["submission_id"] and job["kind"] == "GRADING":
                     transition(connection, job["submission_id"], "QUEUED", now)
                 elif job["kind"] == "IMAGE":
                     connection.execute("UPDATE submission_pages SET processing_status='PENDING' WHERE id=?",(job["page_id"],))
@@ -974,7 +991,7 @@ class MathGraderService:
     def job_counts(self):
         with self.database.connection() as connection:
             rows = connection.execute(
-                "SELECT status, COUNT(*) AS count FROM jobs WHERE kind='SUBMISSION' GROUP BY status"
+                "SELECT status, COUNT(*) AS count FROM jobs WHERE kind IN ('SUBMISSION','GRADING') GROUP BY status"
             ).fetchall()
         return {row["status"]: row["count"] for row in rows}
 

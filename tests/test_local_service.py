@@ -54,7 +54,7 @@ def test_sqlite_initializes_schema_and_class_student_assignment_path(tmp_path):
     service = make_service(tmp_path)
 
     with service.database.connection() as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 4
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 5
         tables = {
             row[0]
             for row in connection.execute(

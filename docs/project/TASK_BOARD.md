@@ -47,7 +47,13 @@
 - Release blocker：正式 `.app` 使用系统 Python 与未随包提供的 OCR/Formula/MLX 依赖；运行环境页已明确显示。P2 仍为 `READY_FOR_DEVICE_TEST`。
 - 完整交接：`docs/project/handoffs/P4-X1-2026-09-26.md`。
 
-## USER TARGET FLOW — One-time Exam Analysis to Grading (implementation paused)
+## IN PROGRESS — P5-L1 Teacher Workflow + Auto Exam Template + Grading Vertical Slice
+
+- Model request：GPT-6 Luna。当前线程不提供模型切换能力；未使用 Sol，也未委派其他模型。
+- Branch：`phase/p5-l1`。
+- Start SHA：`c4316051ce3ead739f729b969275b17b52fc75c1`；这是需求记录提交，不是 P5 实现。
+- 当前状态：**IN PROGRESS**。本轮已开始实现，不再停留在需求文档。
+- 明确排除：Production Runtime Packaging、最终 Benchmark / Confidence。
 
 User-defined end-to-end target:
 
@@ -56,9 +62,10 @@ User-defined end-to-end target:
 - One teacher confirmation should commit the exam structure for the current assignment; later students in that assignment reuse that structure without repeating setup.
 - AI analysis proposes structure and answers for teacher confirmation. Grading uses explicit deterministic answer rules; uncertain or unsupported answers remain in human review.
 - The temporary template is scoped to the current quiz/assignment. Whether to promote it into the reusable template library is a separate future decision.
-- This records product intent only. **P5-L1 remains paused; no implementation has started.** P2's real iPhone Safari gate remains independent and is still `READY_FOR_DEVICE_TEST`.
+- P5 delivers the teacher-facing Submission Workspace, existing-workbook/new-exam entry, one-time Qwen3-VL 4B full-page analysis, editable Answer Key Builder, Assignment-scoped temporary template, normal PP-OCR/Formula/Qwen answer recognition, deterministic grading, human review, and final QuestionResult/Submission score.
+- Acceptance includes a four-page Student A flow, Student B reuse without another full-page exam analysis, P0–P4 regression, and a handoff. P2's real iPhone Safari gate remains independent and is still `READY_FOR_DEVICE_TEST`.
 
-## LATER — P4-X1 之后
+## LATER — P5-L1 之后
 
 真实学生数据 Model Benchmark → 确定性判分 → Confidence / Human Review → Student History → Analytics → 正式 Python/依赖打包。当前不自动开始下一阶段。
 

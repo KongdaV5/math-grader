@@ -10,7 +10,7 @@ const pages = [
   {id: "grading", title: "开始批改", description: "采集、提交与后台队列", marker: "▣"},
   {id: "assignments", title: "作业", description: "班级作业与提交", marker: "▤"},
   {id: "students", title: "学生", description: "学生名册", marker: "◉"},
-  {id: "review", title: "人工复核", description: "后续启用", marker: "✓"},
+  {id: "review", title: "人工复核", description: "确认识别与判分结果", marker: "✓"},
   {id: "templates", title: "模板", description: "教材与参考页", marker: "▧"},
   {id: "analytics", title: "学习分析", description: "真实数据概览", marker: "▥"},
   {id: "lab", title: "识别实验室", description: "高级检查与模型对照", marker: "◬"},
@@ -45,7 +45,7 @@ function App() {
     <aside className="app-sidebar"><a className="app-brand" href="#/home"><span className="app-brand-icon">数</span><span><strong>Math Grader</strong><small>本地作业批改</small></span></a>
       <nav aria-label="主导航">{pages.filter((item) => item.id !== "lab").map((item) => <a key={item.id} href={`#/${item.id}`} className={page === item.id ? "active" : ""} aria-current={page === item.id ? "page" : undefined}>
         <span className="nav-marker" aria-hidden="true">{item.marker}</span>{item.title}</a>)}</nav>
-      <div className="sidebar-foot"><span className={`service-dot ${online ? "online-dot" : ""}`} />{online ? "本地服务已连接" : "本地服务未连接"}<small>P4-X1 · 本地运行</small></div>
+      <div className="sidebar-foot"><span className={`service-dot ${online ? "online-dot" : ""}`} />{online ? "本地服务已连接" : "本地服务未连接"}<small>P5-L1 · 本地运行</small></div>
     </aside>
     <div className="app-main"><header className="page-header"><div><p className="eyebrow">MATH GRADER / {selected.id.toUpperCase()}</p><h1>{selected.title}</h1><p>{selected.description}</p></div>
       <span className={`service-pill ${online ? "online" : "offline"}`}><span className="service-dot" />{online ? "本地服务正常" : "服务未连接"}</span></header>

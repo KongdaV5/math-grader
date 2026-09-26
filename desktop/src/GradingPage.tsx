@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, fileAsBase64, type Assignment, type ClassRecord, type Student, type Submission } from "./api";
 import { CaptureControls } from "./CaptureControls";
+import { SubmissionWorkspace } from "./SubmissionWorkspace";
 
 const now = new Date();
 const today = new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
@@ -8,14 +9,14 @@ const today = new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOSt
 const statusLabels: Record<string, string> = {
   EMPTY: "未开始",
   CAPTURING: "采集中",
-  READY: "已就绪",
+  READY: "待开始批改",
   QUEUED: "排队中",
   PROCESSING: "处理中",
   REVIEW_REQUIRED: "需要复核",
   COMPLETED: "处理完成",
   FAILED: "处理失败",
 };
-const captureStages = ["CAPTURING", "READY", "QUEUED", "PROCESSING", "COMPLETED"];
+const captureStages = ["CAPTURING", "READY", "QUEUED", "PROCESSING", "REVIEW_REQUIRED", "COMPLETED"];
 
 export function GradingPage() {
   const [serviceReady, setServiceReady] = useState(false);
@@ -34,9 +35,11 @@ export function GradingPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [captureActive, setCaptureActive] = useState(false);
+  const [workspaceSubmissionId, setWorkspaceSubmissionId] = useState("");
 
   const selectedStudent = useMemo(() => students.find((student) => student.id === studentId), [students, studentId]);
   const selectedAssignment = useMemo(() => assignments.find((assignment) => assignment.id === assignmentId), [assignments, assignmentId]);
+  const workspaceOpened = useCallback(() => setWorkspaceSubmissionId(""), []);
 
   const refreshClassData = useCallback(async (selectedClassId: string) => {
     if (!selectedClassId) {
@@ -55,6 +58,10 @@ export function GradingPage() {
     setStudentId((current) => studentRows.some((student) => student.id === current) ? current : studentRows[0]?.id ?? "");
     setAssignmentId((current) => assignmentRows.some((assignment) => assignment.id === current) ? current : assignmentRows[0]?.id ?? "");
   }, []);
+
+  const refreshAssignmentMode = useCallback(() => {
+    void refreshClassData(classId).catch((cause: Error) => setError(cause.message));
+  }, [classId, refreshClassData]);
 
   const load = useCallback(async () => {
     try {
@@ -83,7 +90,7 @@ export function GradingPage() {
   }, [classId, refreshClassData]);
 
   useEffect(() => {
-    if (!submission || !["QUEUED", "PROCESSING", "READY"].includes(submission.status)) return;
+    if (!submission || !["QUEUED", "PROCESSING"].includes(submission.status)) return;
     const timer = window.setInterval(() => {
       void api.submission(submission.id).then(setSubmission).catch((cause: unknown) => {
         setError(cause instanceof Error ? cause.message : "读取批改状态失败");
@@ -128,7 +135,7 @@ export function GradingPage() {
   async function createAssignment() {
     if (!classId) return;
     await withBusy(async () => {
-      const created = await api.createAssignment(classId, assignmentName, assignmentDate);
+      const created = await api.createTeacherAssignment(classId, assignmentName, assignmentDate);
       setAssignmentName("");
       await refreshClassData(classId);
       setAssignmentId(created.id);
@@ -168,6 +175,7 @@ export function GradingPage() {
     if (!submission) return;
     await withBusy(async () => {
       setSubmission(await api.finishSubmission(submission.id));
+      setWorkspaceSubmissionId(submission.id);
     });
   }
 
@@ -191,7 +199,7 @@ export function GradingPage() {
 
             <label className="field-label" htmlFor="class-select">当前班级</label>
             <div className="inline-controls">
-              <select id="class-select" value={classId} onChange={(event) => { setClassId(event.target.value); setSubmission(null); }} disabled={!serviceReady}>
+              <select id="class-select" value={classId} onChange={(event) => { setClassId(event.target.value); setSubmission(null); setWorkspaceSubmissionId(""); }} disabled={!serviceReady}>
                 <option value="">选择班级</option>
                 {classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
               </select>
@@ -219,7 +227,7 @@ export function GradingPage() {
               <form className="mini-form" onSubmit={(event) => { event.preventDefault(); void createAssignment(); }}>
                 <div className="mini-heading"><span className="mini-icon assignment-icon">作</span><h3>作业</h3><span className="count">{assignments.length}</span></div>
                 <label className="field-label" htmlFor="assignment-select">当前作业</label>
-                <select id="assignment-select" value={assignmentId} onChange={(event) => { setAssignmentId(event.target.value); setSubmission(null); }}>
+                <select id="assignment-select" value={assignmentId} onChange={(event) => { setAssignmentId(event.target.value); setSubmission(null); setWorkspaceSubmissionId(""); }}>
                   <option value="">选择作业</option>
                   {assignments.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.date}</option>)}
                 </select>
@@ -302,6 +310,8 @@ export function GradingPage() {
                 {submission.pages.map((page) => <li key={page.id}><span className="page-index">{String(page.page_index).padStart(2, "0")}</span><span>第 {page.page_index} 页</span><code>{page.source_ref.startsWith("placeholder://") ? "测试占位页" : "本地图片"}</code></li>)}
               </ol>}
 
+              {submission.status !== "CAPTURING" && submission.pages.length > 0 && <button className="button primary" type="button" onClick={() => setWorkspaceSubmissionId(submission.id)}>查看并开始批改</button>}
+
               {submission.error && <div className="notice error result-error">{submission.error}</div>}
 
               {(submission.status === "QUEUED" || submission.status === "PROCESSING") && <div className="processing-note"><span className="spinner" />后台正在处理，你可以继续管理班级数据。</div>}
@@ -328,8 +338,8 @@ export function GradingPage() {
             <ol className="flow-list">
               <li className="flow-done"><span>1</span><div><strong>选择学生</strong><small>每次作业创建一个 Submission</small></div></li>
               <li className={submission ? "flow-done" : ""}><span>2</span><div><strong>添加作业页面</strong><small>支持多页和本地图片</small></div></li>
-              <li className={submission && ["QUEUED", "PROCESSING", "COMPLETED"].includes(submission.status) ? "flow-done" : ""}><span>3</span><div><strong>完成该生</strong><small>明确点击后才进入处理队列</small></div></li>
-              <li className={submission?.status === "COMPLETED" ? "flow-done" : ""}><span>4</span><div><strong>识别与保存</strong><small>后台顺序处理并写回结果</small></div></li>
+              <li className={submission && ["READY", "QUEUED", "PROCESSING", "COMPLETED"].includes(submission.status) ? "flow-done" : ""}><span>3</span><div><strong>查看页面</strong><small>作业照片会归入对应学生提交</small></div></li>
+              <li className={submission?.status === "COMPLETED" ? "flow-done" : ""}><span>4</span><div><strong>确认题目并批改</strong><small>答案不确定时进入人工复核</small></div></li>
             </ol>
             <div className="local-note"><span>⌂</span><p>班级、学生、页面引用和批改结果均保存在此 Mac。</p></div>
           </section>
@@ -341,6 +351,9 @@ export function GradingPage() {
           </section>
         </aside>
       </section>
+      <SubmissionWorkspace assignmentId={assignmentId} assignmentLabel={selectedAssignment?.name ?? ""}
+        workflowMode={selectedAssignment?.workflow_mode} requestedSubmissionId={workspaceSubmissionId}
+        onOpened={workspaceOpened} onAssignmentModeChanged={refreshAssignmentMode} />
     </div>
   );
 }

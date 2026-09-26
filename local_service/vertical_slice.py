@@ -263,14 +263,22 @@ class VerticalSlice:
                 row=connection.execute('SELECT processed_image AS path FROM submission_pages WHERE id=?',(item_id,)).fetchone()
             elif kind=='crop':
                 row=connection.execute('SELECT crop_path AS path FROM answer_crops WHERE id=?',(item_id,)).fetchone()
+            elif kind=='original':
+                row=connection.execute('SELECT source_ref AS path,mime_type FROM submission_pages WHERE id=?',(item_id,)).fetchone()
             else:
                 raise PageNotFound('Unknown image type')
         if row is None or not row['path']: raise PageNotFound('Image not found')
-        path=self.service._stored_page_path(row['path']) if kind=='reference' else self.paths.root/row['path']
-        allowed=self.paths.originals if kind=='reference' else self.paths.processed if kind=='processed' else self.paths.crops
+        path=self.service._stored_page_path(row['path']) if kind in ('reference','original') else self.paths.root/row['path']
+        if kind=='original':
+            allowed = self.paths.legacy_pages if row['path'].startswith('pages/') else self.paths.originals
+        else:
+            allowed=self.paths.originals if kind=='reference' else self.paths.processed if kind=='processed' else self.paths.crops
         if path is None or not path.resolve().is_relative_to(allowed.resolve()) or not path.is_file():
             raise PageNotFound('Managed image not found')
-        mime='image/png' if path.suffix.lower()=='.png' else 'image/jpeg' if path.suffix.lower() in ('.jpg','.jpeg') else 'image/webp'
+        mime=(row['mime_type'] if kind=='original' and row['mime_type'] else
+              'image/png' if path.suffix.lower()=='.png' else
+              'image/jpeg' if path.suffix.lower() in ('.jpg','.jpeg') else
+              'image/webp' if path.suffix.lower()=='.webp' else 'application/octet-stream')
         return mime,path.read_bytes()
 
     def import_lab_image(self,filename,content):

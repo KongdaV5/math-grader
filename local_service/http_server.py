@@ -57,6 +57,12 @@ class ServiceRequestHandler(BaseHTTPRequestHandler):
                 return self._send_json(200, self.server.service.health())
             if len(segments)==4 and segments[:2]==["api","images"]:
                 return self._send_image(*self.server.service.slice.image_bytes(segments[2],segments[3]))
+            if segments == ["api", "review", "queue"]:
+                return self._send_json(200, self.server.service.teacher_workflow.review_queue())
+            if len(segments) == 4 and segments[:2] == ["api", "assignments"] and segments[3] == "exam-template":
+                return self._send_json(200, self.server.service.teacher_workflow.get_exam_template(segments[2]))
+            if len(segments) == 4 and segments[:2] == ["api", "submissions"] and segments[3] == "grade":
+                return self._send_json(200, self.server.service.teacher_workflow.grade_result(segments[2]))
             if len(segments)==4 and segments[:2]==["api","pages"]:
                 if segments[3]=="detail":
                     return self._send_json(200,self.server.service.slice.page_detail(segments[2]))
@@ -180,7 +186,8 @@ class ServiceRequestHandler(BaseHTTPRequestHandler):
                 if resource == "assignments":
                     return self._send_json(
                         201,
-                        service.create_assignment(class_id, body.get("name"), body.get("date")),
+                        service.create_assignment(class_id, body.get("name"), body.get("date"),
+                                                  body.get("workflow_mode", "LEGACY")),
                     )
             if segments == ["api", "submissions"]:
                 return self._send_json(
@@ -199,6 +206,23 @@ class ServiceRequestHandler(BaseHTTPRequestHandler):
                     return self._send_json(201, {"page": page, "submission": service.get_submission(submission_id)})
                 if action == "finish":
                     return self._send_json(202, service.finish_submission(submission_id))
+                if action == "grade":
+                    return self._send_json(202, service.teacher_workflow.enqueue_grading(submission_id))
+            if len(segments) == 4 and segments[:2] == ["api", "assignments"] and segments[3] == "teacher-workflow":
+                return self._send_json(200, service.teacher_workflow.enable_assignment(segments[2]))
+            if len(segments) == 5 and segments[:2] == ["api", "assignments"] and segments[3] == "exam-template":
+                assignment_id, action = segments[2], segments[4]
+                if action == "analyze":
+                    return self._send_json(200, service.teacher_workflow.analyze_exam(
+                        assignment_id, body.get("submission_id")))
+                if action == "library":
+                    return self._send_json(200, service.teacher_workflow.choose_library_template(
+                        assignment_id, body.get("template_group_id")))
+                if action == "confirm":
+                    return self._send_json(200, service.teacher_workflow.confirm_exam(assignment_id))
+            if len(segments) == 4 and segments[:2] == ["api", "question-results"] and segments[3] == "review":
+                return self._send_json(200, service.teacher_workflow.review_question(
+                    segments[2], body.get("decision"), body.get("reviewed_answer")))
             return self._send_json(404, {"error": "Route not found"})
         except Exception as error:
             return self._handle_error(error)
@@ -206,6 +230,8 @@ class ServiceRequestHandler(BaseHTTPRequestHandler):
     def do_PATCH(self):
         try:
             parts=self._segments();body=self._read_json();service=self.server.service.templates
+            if len(parts)==4 and parts[:2]==["api","assignments"] and parts[3]=="exam-template":
+                return self._send_json(200,self.server.service.teacher_workflow.update_draft(parts[2],body))
             if len(parts)==4 and parts[:3]==["api","templates","questions"]:
                 return self._send_json(200,service.update_question(parts[3],body))
             if len(parts)==4 and parts[:3]==["api","templates","regions"]:

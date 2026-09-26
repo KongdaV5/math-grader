@@ -20,12 +20,16 @@ export type Assignment = {
   name: string;
   date: string;
   status: string;
+  workflow_mode?: "LEGACY" | "TEACHER_WORKFLOW";
 };
 
 export type PageRecord = {
   id: string;
   page_index: number;
   source_ref: string;
+  original_filename?: string | null;
+  mime_type?: string | null;
+  byte_size?: number;
   processed_image?: string | null;
   processing_status?: string;
 };
@@ -47,12 +51,16 @@ export type Submission = {
   id: string;
   assignment_id: string;
   student_id: string;
+  student_no?: string;
+  student_name?: string;
   status: "EMPTY" | "CAPTURING" | "READY" | "QUEUED" | "PROCESSING" | "REVIEW_REQUIRED" | "COMPLETED" | "FAILED";
   page_count: number;
   created_at: string;
   finished_capture_at: string | null;
   completed_at: string | null;
   error: string | null;
+  score?: number | null;
+  max_score?: number | null;
   pages: PageRecord[];
   results: RecognitionResult[];
 };
@@ -156,6 +164,8 @@ export const api = {
   submissions: (assignmentId: string) => request<Submission[]>(`/api/assignments/${assignmentId}/submissions`),
   createAssignment: (classId: string, name: string, date: string) =>
     request<Assignment>(`/api/classes/${classId}/assignments`, { method: "POST", body: JSON.stringify({ name, date }) }),
+  createTeacherAssignment: (classId: string, name: string, date: string) =>
+    request<Assignment>(`/api/classes/${classId}/assignments`, { method: "POST", body: JSON.stringify({ name, date, workflow_mode: "TEACHER_WORKFLOW" }) }),
   createSubmission: (assignment_id: string, student_id: string) =>
     request<Submission>("/api/submissions", { method: "POST", body: JSON.stringify({ assignment_id, student_id }) }),
   startSubmission: (id: string) => request<Submission>(`/api/submissions/${id}/start`, { method: "POST", body: "{}" }),
@@ -165,6 +175,23 @@ export const api = {
     request<{ page: PageRecord; submission: Submission }>(`/api/submissions/${id}/pages`, { method: "POST", body: JSON.stringify({ filename, image_base64 }) }),
   finishSubmission: (id: string) => request<Submission>(`/api/submissions/${id}/finish`, { method: "POST", body: "{}" }),
   submission: (id: string) => request<Submission>(`/api/submissions/${id}`),
+  assignmentExam: (id: string) => request<AssignmentExamTemplate | null>(`/api/assignments/${id}/exam-template`),
+  enableTeacherWorkflow: (assignmentId: string) =>
+    request<Assignment>(`/api/assignments/${assignmentId}/teacher-workflow`, {method:"POST",body:"{}"}),
+  analyzeExam: (assignmentId: string, submissionId: string) =>
+    request<AssignmentExamTemplate>(`/api/assignments/${assignmentId}/exam-template/analyze`, {method:"POST",body:JSON.stringify({submission_id:submissionId})}),
+  chooseLibraryTemplate: (assignmentId: string, templateGroupId: string) =>
+    request<AssignmentExamTemplate>(`/api/assignments/${assignmentId}/exam-template/library`, {method:"POST",body:JSON.stringify({template_group_id:templateGroupId})}),
+  updateExamDraft: (assignmentId: string, draft: ExamDraft) =>
+    request<AssignmentExamTemplate>(`/api/assignments/${assignmentId}/exam-template`, {method:"PATCH",body:JSON.stringify(draft)}),
+  confirmExam: (assignmentId: string) =>
+    request<AssignmentExamTemplate>(`/api/assignments/${assignmentId}/exam-template/confirm`, {method:"POST",body:"{}"}),
+  startGrading: (submissionId: string) =>
+    request<{submission_id:string;job_id:string;status:string}>(`/api/submissions/${submissionId}/grade`, {method:"POST",body:"{}"}),
+  gradingResult: (submissionId: string) => request<GradingResult>(`/api/submissions/${submissionId}/grade`),
+  reviewQueue: () => request<ReviewQueueItem[]>("/api/review/queue"),
+  reviewQuestion: (resultId:string, decision:"CORRECT"|"INCORRECT", reviewed_answer:string) =>
+    request<GradingResult>(`/api/question-results/${resultId}/review`, {method:"POST",body:JSON.stringify({decision,reviewed_answer})}),
   captureSession: () => request<CaptureSessionSnapshot>("/api/capture/session"),
   startCaptureSession: (assignment_id: string, host: string) =>
     request<CaptureSessionSnapshot>("/api/capture/session/start", { method: "POST", body: JSON.stringify({ assignment_id, host }) }),
@@ -225,4 +252,17 @@ export type LabRun = {id:string;crop_id:string;provider:string;model:string;mode
 export type LabDetail = {page:PageRecord & {processing_status:string;processing_warning:string|null;
   processing_error:string|null;template_binding_id:string|null};binding:{id:string;page_template_id:string;template_version:number;snapshot:PageTemplate}|null;
   crops:AnswerCrop[];runs:LabRun[]};
-export const imageUrl = (kind:"reference"|"processed"|"crop",id:string) => `${API_BASE}/api/images/${kind}/${id}`;
+export type AnswerRegionDraft = {x:number;y:number;width:number;height:number} | null;
+export type ExamQuestionDraft = {question_no:string;question_text:string;answer_type:string;answer_region:AnswerRegionDraft;
+  answer_key_candidate:string|null;accepted_answers:string[];score:number;confidence:number|null;analysis_note:string};
+export type ExamDraft = {pages:Array<{page_index:number;questions:ExamQuestionDraft[]}>};
+export type AssignmentExamTemplate = {id:string;assignment_id:string;template_group_id:string|null;source_submission_id:string|null;
+  status:"DRAFT"|"CONFIRMED";draft:ExamDraft;analysis_metadata:Record<string,unknown>;confirmed_at:string|null;
+  template_group?:TemplateGroup|null;temporary_template_created?:boolean};
+export type QuestionResult = {id:string;submission_id:string;page_id:string|null;question_no:string;answer_type:string;
+  recognition_result_id:string|null;expected_answer:string|null;accepted_answers:string[];student_answer:string|null;
+  confidence:number|null;decision_status:"CORRECT"|"INCORRECT"|"REVIEW_REQUIRED";review_status:"PENDING"|"DONE";
+  reviewed_answer:string|null;awarded_score:number;max_score:number;rule_code:string|null;evidence:Record<string,unknown>};
+export type GradingResult = {submission:Submission;question_results:QuestionResult[];job:Record<string,unknown>|null};
+export type ReviewQueueItem = GradingResult & {student_name:string;student_no:string;assignment_name:string;assignment_id:string};
+export const imageUrl = (kind:"reference"|"processed"|"crop"|"original",id:string) => `${API_BASE}/api/images/${kind}/${id}`;

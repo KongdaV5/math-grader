@@ -1,7 +1,7 @@
 import { TemplateEditor } from "./TemplateEditor";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, fileAsBase64, type Assignment, type ClassRecord, type ModelStatus, type Overview,
-  type PageTemplate, type ProviderHealth, type Student, type Submission, type SystemInfo, type TemplateGroup } from "./api";
+  imageUrl, type PageTemplate, type ProviderHealth, type ReviewQueueItem, type Student, type Submission, type SystemInfo, type TemplateGroup } from "./api";
 
 function Message({ text, error = false }: { text: string; error?: boolean }) {
   return <div className={`product-message ${error ? "is-error" : ""}`} role={error ? "alert" : "status"}>{text}</div>;
@@ -67,10 +67,10 @@ export function AssignmentsPage() {
     {classError && <Message text={classError} error />}{error && <Message text={error} error />}
     <label className="field-label" htmlFor="assignment-class">班级</label>
     <select id="assignment-class" value={classId} onChange={(e) => setClassId(e.target.value)}><option value="">选择班级</option>{classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
-    <form className="product-form" onSubmit={(e) => { e.preventDefault(); setBusy(true); void api.createAssignment(classId, name, date).then(() => {setName(""); return load();}).catch((cause: Error) => setError(cause.message)).finally(() => setBusy(false)); }}>
+    <form className="product-form" onSubmit={(e) => { e.preventDefault(); setBusy(true); void api.createTeacherAssignment(classId, name, date).then(() => {setName(""); return load();}).catch((cause: Error) => setError(cause.message)).finally(() => setBusy(false)); }}>
       <input aria-label="新作业名称" placeholder="作业名称" value={name} onChange={(e) => setName(e.target.value)} required />
       <input aria-label="作业日期" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
-      <button className="button primary" disabled={!classId || busy}>创建作业</button>
+      <button className="button primary" disabled={!classId || busy}>创建批改作业</button>
     </form></section>
     <section className="product-card"><h2>作业列表</h2>{rows.length ? <ul className="simple-list">{rows.map((item) =>
       <li key={item.id}><div><strong>{item.name}</strong><small>{item.date}</small></div><span>{item.status} · {counts[item.id] ?? "…"} 份提交</span></li>)}</ul> : <p className="empty-copy">当前班级暂无作业。</p>}</section></div>;
@@ -110,7 +110,38 @@ export function StudentsPage() {
 }
 
 export function ReviewPage() {
-  return <section className="product-card empty-page"><h2>人工复核</h2><p>识别与人工复核模块尚未启用。</p><p>当前提交和队列状态可在“开始批改”查看。</p><a href="#/grading">前往开始批改</a></section>;
+  const [queue, setQueue] = useState<ReviewQueueItem[]>([]);
+  const [answers, setAnswers] = useState<Record<string,string>>({});
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState("");
+  const load = useCallback(() => {void api.reviewQueue().then((rows) => {setQueue(rows);setError("");}).catch((cause:Error)=>setError(cause.message));},[]);
+  useEffect(() => {load();const timer=setInterval(load,3000);return()=>clearInterval(timer);},[load]);
+  async function review(resultId:string,decision:"CORRECT"|"INCORRECT") {
+    setBusy(resultId);setError("");
+    try {await api.reviewQuestion(resultId,decision,answers[resultId] ?? "");load();}
+    catch(cause) {setError(cause instanceof Error?cause.message:"保存复核结果失败");}
+    finally {setBusy("");}
+  }
+  return <div className="page-stack review-workspace"><section className="product-card"><div className="product-card-heading"><div><h2>人工复核</h2><p>识别不确定、缺少答案键或题页不匹配的项目会停在这里。</p></div><a href="#/grading">返回作业工作区</a></div>
+    {error && <Message text={error} error />}
+    {!queue.length && <p className="empty-copy">当前没有待复核题目。</p>}
+    {queue.map((item) => <article className="review-submission" key={item.submission.id}>
+      <div className="review-submission-heading"><div><span className="eyebrow">{item.assignment_name}</span><h3>{item.student_no} · {item.student_name}</h3></div>
+        <span className="status-badge">{item.submission.pages.length} 页 · 待复核 {item.question_results.filter((result)=>result.review_status==="PENDING").length} 题</span></div>
+      <div className="review-question-list">{item.question_results.filter((result)=>result.review_status==="PENDING").map((result) => {
+        const page=item.submission.pages.find((row)=>row.id===result.page_id);
+        return <section className="review-question" key={result.id}>
+          {page && !page.source_ref.startsWith("placeholder://") && <a href={imageUrl("original",page.id)} target="_blank" rel="noreferrer"><img src={imageUrl("original",page.id)} alt={`${item.student_name} 第 ${page.page_index} 页作业`} loading="lazy" /></a>}
+          <div className="review-question-content"><div className="exam-question-title"><strong>第 {result.question_no} 题</strong><span>{result.rule_code ?? "需要老师判断"}</span></div>
+            <p>识别答案：<strong>{result.student_answer ?? "未能可靠识别"}</strong> · 标准答案：{result.expected_answer ?? "未提供"}</p>
+            <label>老师确认的答案<input value={answers[result.id] ?? result.student_answer ?? ""} onChange={(event)=>setAnswers((current)=>({...current,[result.id]:event.target.value}))} placeholder="可先修正识别文字" /></label>
+            <div className="review-actions"><button className="button primary" disabled={busy===result.id} onClick={()=>void review(result.id,"CORRECT")}>判为正确</button>
+              <button className="button secondary" disabled={busy===result.id} onClick={()=>void review(result.id,"INCORRECT")}>判为错误</button></div>
+          </div>
+        </section>;
+      })}</div>
+    </article>)}
+  </section></div>;
 }
 
 export function AnalyticsPage() {
