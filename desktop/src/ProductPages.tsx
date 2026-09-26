@@ -132,7 +132,7 @@ export function ReviewPage() {
         const page=item.submission.pages.find((row)=>row.id===result.page_id);
         return <section className="review-question" key={result.id}>
           {page && !page.source_ref.startsWith("placeholder://") && <a href={imageUrl("original",page.id)} target="_blank" rel="noreferrer"><img src={imageUrl("original",page.id)} alt={`${item.student_name} 第 ${page.page_index} 页作业`} loading="lazy" /></a>}
-          <div className="review-question-content"><div className="exam-question-title"><strong>第 {result.question_no} 题</strong><span>{result.rule_code ?? "需要老师判断"}</span></div>
+          <div className="review-question-content"><div className="exam-question-title"><strong>{page ? `第 ${page.page_index} 页 · ` : ""}第 {result.question_no} 题</strong><span>{result.rule_code ?? "需要老师判断"}</span></div>
             <p>识别答案：<strong>{result.student_answer ?? "未能可靠识别"}</strong> · 标准答案：{result.expected_answer ?? "未提供"}</p>
             <label>老师确认的答案<input value={answers[result.id] ?? result.student_answer ?? ""} onChange={(event)=>setAnswers((current)=>({...current,[result.id]:event.target.value}))} placeholder="可先修正识别文字" /></label>
             <div className="review-actions"><button className="button primary" disabled={busy===result.id} onClick={()=>void review(result.id,"CORRECT")}>判为正确</button>
