@@ -47,6 +47,17 @@
 - Release blocker：正式 `.app` 使用系统 Python 与未随包提供的 OCR/Formula/MLX 依赖；运行环境页已明确显示。P2 仍为 `READY_FOR_DEVICE_TEST`。
 - 完整交接：`docs/project/handoffs/P4-X1-2026-09-26.md`。
 
+## USER TARGET FLOW — One-time Exam Analysis to Grading (implementation paused)
+
+User-defined end-to-end target:
+
+`手机拍摄多页 → Mac 即时看到该生全部页面 → 无现成模板时选择“自动分析本次试卷” → AI 提取题目/分题/答案区域并提出标准答案 → 老师一次确认 → 为本次测验生成临时模板 → 按该结构识别学生答案 → 确定性判分 → 人工复核 → 得出成绩 → 下一名学生复用同一试卷结构`
+
+- One teacher confirmation should commit the exam structure for the current assignment; later students in that assignment reuse that structure without repeating setup.
+- AI analysis proposes structure and answers for teacher confirmation. Grading uses explicit deterministic answer rules; uncertain or unsupported answers remain in human review.
+- The temporary template is scoped to the current quiz/assignment. Whether to promote it into the reusable template library is a separate future decision.
+- This records product intent only. **P5-L1 remains paused; no implementation has started.** P2's real iPhone Safari gate remains independent and is still `READY_FOR_DEVICE_TEST`.
+
 ## LATER — P4-X1 之后
 
 真实学生数据 Model Benchmark → 确定性判分 → Confidence / Human Review → Student History → Analytics → 正式 Python/依赖打包。当前不自动开始下一阶段。
