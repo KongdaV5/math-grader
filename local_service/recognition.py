@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 import time
+from local_service.errors import DomainError
+from local_service.model_providers import ModelProviderRegistry, RecognitionRequest
 
 
 class RecognitionResult:
@@ -34,6 +36,10 @@ class RecognitionResult:
             "latency_ms": self.latency_ms,
             "metadata": self.metadata,
             "error": self.error,
+            "provider_id": self.provider,
+            "model_id": self.model,
+            "runtime": self.metadata.get("runtime"),
+            "raw_metadata": self.metadata,
         }
 
 
@@ -84,23 +90,63 @@ class ProviderRegistry:
 
 
 class RecognitionGateway:
-    def __init__(self, config, registry=None):
+    def __init__(self, config, registry=None, catalog=None, manager=None):
         self.registry = registry or ProviderRegistry()
         self.config = config
+        self.model_registry = ModelProviderRegistry(catalog, manager) if catalog and manager else None
+        self._validate_model_routes(catalog)
         self.providers = {}
         self.provider_settings = config.get("providers", {})
         for name, settings in config.get("providers", {}).items():
             self.providers[name] = self.registry.create(name, settings)
 
     @classmethod
-    def from_file(cls, path=None, registry=None):
+    def from_file(cls, path=None, registry=None, catalog=None, manager=None):
         config_path = Path(path) if path else Path(__file__).parent / "config" / "recognition.json"
         config = json.loads(config_path.read_text(encoding="utf-8"))
         if not isinstance(config.get("recognition"), dict) or not isinstance(
             config.get("providers"), dict
         ):
             raise ValueError("Recognition config must contain recognition and providers objects")
-        return cls(config, registry=registry)
+        return cls(config, registry=registry, catalog=catalog, manager=manager)
+
+    def _validate_model_routes(self, catalog):
+        if self.config.get("schema_version", 1) != 1:
+            raise ValueError("Unsupported recognition config schema")
+        routes = self.config.get("model_routes", {})
+        if not isinstance(routes, dict):
+            raise ValueError("model_routes must be an object")
+        if routes and catalog is None:
+            raise ValueError("Model routes require a catalog")
+        for capability, route in routes.items():
+            if not isinstance(route, dict) or not route.get("primary"):
+                raise ValueError("Invalid model route")
+            for model_id in (route["primary"], route.get("fallback")):
+                if not model_id:
+                    continue
+                model = catalog.get(model_id)
+                if capability not in model["capabilities"]:
+                    raise ValueError("Model {} does not support {}".format(model_id, capability))
+
+    def recognize_request(self, request):
+        if not isinstance(request, RecognitionRequest):
+            raise TypeError("RecognitionRequest required")
+        if self.model_registry is None:
+            raise ValueError("Model providers are not configured")
+        route = self.config.get("model_routes", {}).get(request.capability)
+        if not route:
+            raise ValueError("No model route for capability " + request.capability)
+        errors = []
+        for model_id in (route["primary"], route.get("fallback")):
+            if not model_id:
+                continue
+            try:
+                return self.model_registry.get(model_id).execute(request)
+            except DomainError as error:
+                errors.append({"model_id": model_id, "code": error.code, "message": str(error)})
+        error = errors[-1]
+        return RecognitionResult(provider="model", model=error["model_id"],
+                                 metadata={"attempts": errors}, error=error["code"])
 
     def recognize(self, source_ref, answer_type, context=None):
         routes = self.config["recognition"]

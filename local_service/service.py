@@ -8,10 +8,17 @@ from pathlib import Path
 import re
 import secrets
 import sqlite3
+import subprocess
+import sys
 import uuid
 
 from local_service.database import Database
 from local_service.recognition import RecognitionGateway
+from local_service.runtime_paths import RuntimePaths
+from local_service.model_catalog import ModelCatalog
+from local_service.model_manager import ModelManager
+from local_service.templates import TemplateService
+from local_service.image_pipeline import ImagePipeline
 from local_service.state_machine import InvalidTransition, transition
 
 
@@ -63,16 +70,80 @@ class MathGraderService:
         self.database = Database(database_path)
         self.data_dir = Path(data_dir) if data_dir else Path(database_path).parent
         self.data_dir.mkdir(parents=True, exist_ok=True)
-        self.pages_dir = self.data_dir / "pages"
+        self.paths = RuntimePaths(self.data_dir).ensure()
+        self.pages_dir = (self.paths.originals if Path(database_path).parent == self.paths.data
+                          else self.paths.legacy_pages)
         self.pages_dir.mkdir(parents=True, exist_ok=True)
-        self.gateway = RecognitionGateway.from_file(recognition_config, registry=registry)
+        self.model_catalog = ModelCatalog()
+        self.model_manager = ModelManager(self.model_catalog, self.paths)
+        self.gateway = RecognitionGateway.from_file(recognition_config, registry=registry,
+                                                     catalog=self.model_catalog, manager=self.model_manager)
+        self.templates = TemplateService(self.database)
+        self.image_pipeline = ImagePipeline(self.paths.processed)
         self.recover_interrupted_jobs()
         self.expire_orphaned_capture_sessions()
 
     def health(self):
         with self.database.connection() as connection:
             connection.execute("SELECT 1").fetchone()
-        return {"status": "ok", "service": "math-grader-local"}
+        return {"status": "ok", "service": "math-grader-local", "runtime_version": sys.version.split()[0],
+                "python_supported": sys.version_info >= (3, 9)}
+
+    def system_info(self):
+        return {"paths": self.paths.describe(), "runtime_version": sys.version.split()[0],
+                "python_supported": sys.version_info >= (3, 9),
+                "recognition_config": {"schema_version": self.gateway.config.get("schema_version", 1),
+                                       "routes": list(self.gateway.config.get("recognition", {})),
+                                       "model_routes": self.gateway.config.get("model_routes", {})}}
+
+    def open_directory(self, key):
+        allowed = {"root", "data", "originals", "processed", "models", "cache", "logs", "config"}
+        if key not in allowed:
+            raise ValidationError("Unknown directory")
+        path = getattr(self.paths, key)
+        if sys.platform == "darwin":
+            subprocess.Popen(["open", str(path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return str(path)
+
+    def overview(self):
+        with self.database.connection() as connection:
+            counts = {
+                "classes": connection.execute("SELECT COUNT(*) FROM classes").fetchone()[0],
+                "students": connection.execute("SELECT COUNT(*) FROM students").fetchone()[0],
+                "queued": connection.execute("SELECT COUNT(*) FROM submissions WHERE status='QUEUED'").fetchone()[0],
+                "processing": connection.execute("SELECT COUNT(*) FROM submissions WHERE status='PROCESSING'").fetchone()[0],
+            }
+            assignments = [self._row(row) for row in connection.execute(
+                "SELECT * FROM assignments ORDER BY created_at DESC,id DESC LIMIT 5")]
+            submissions = [self._row(row) for row in connection.execute(
+                "SELECT * FROM submissions ORDER BY created_at DESC,id DESC LIMIT 5")]
+        return {"counts": counts, "recent_assignments": assignments, "recent_submissions": submissions}
+
+    def process_page_image(self, page_id):
+        with self.database.connection() as connection:
+            row = self._require(connection, "submission_pages", page_id)
+        path = self._stored_page_path(row["source_ref"])
+        if path is None or not path.is_file():
+            raise NotFound("Stored page image not found")
+        return self.image_pipeline.process(path).to_dict()
+
+    def import_template_reference(self, page_id, payload):
+        self.templates.get_page_template(page_id)
+        filename, content = self.decode_image_payload(payload)
+        mime_type = self._validated_image_mime(content, None)
+        if len(content) > MAX_IMAGE_BYTES:
+            raise PayloadTooLarge("Image exceeds 10 MB")
+        destination = self.paths.originals / (new_id() + IMAGE_EXTENSIONS[mime_type])
+        temporary = destination.with_name("." + destination.name + ".upload")
+        try:
+            with temporary.open("xb") as output:
+                output.write(content)
+                output.flush()
+                os.fsync(output.fileno())
+            os.replace(temporary, destination)
+            return self.templates.set_reference_image(page_id, str(destination.relative_to(self.data_dir)))
+        finally:
+            temporary.unlink(missing_ok=True)
 
     def list_classes(self):
         with self.database.connection() as connection:
@@ -305,7 +376,7 @@ class MathGraderService:
                         "id": page_id,
                         "submission_id": submission_id,
                         "page_index": page_index,
-                        "source_ref": "pages/" + disk_name,
+                        "source_ref": str(self.pages_dir.relative_to(self.data_dir) / disk_name),
                         "created_at": uploaded_at,
                         "original_filename": safe_filename,
                         "mime_type": mime_type,
@@ -779,9 +850,12 @@ class MathGraderService:
         return {field: session[field] for field in fields}
 
     def _stored_page_path(self, source_ref):
-        if not isinstance(source_ref, str) or not source_ref.startswith("pages/"):
+        if not isinstance(source_ref, str) or not (
+            source_ref.startswith("pages/") or source_ref.startswith("images/originals/")
+        ):
             return None
-        pages_root = self.pages_dir.resolve()
+        pages_root = (self.paths.legacy_pages if source_ref.startswith("pages/")
+                      else self.paths.originals).resolve()
         image_path = (self.data_dir / source_ref).resolve()
         try:
             image_path.relative_to(pages_root)
@@ -905,7 +979,7 @@ class MathGraderService:
 
     @staticmethod
     def _require(connection, table, item_id):
-        allowed = {"classes", "students", "assignments", "submissions"}
+        allowed = {"classes", "students", "assignments", "submissions", "submission_pages"}
         if table not in allowed:
             raise ValueError("Unsupported table")
         row = connection.execute("SELECT * FROM {} WHERE id = ?".format(table), (item_id,)).fetchone()

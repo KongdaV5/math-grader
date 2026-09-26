@@ -38,16 +38,25 @@ fn service_root(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 
 fn spawn_local_service(app: &tauri::AppHandle) -> Result<Child, String> {
     let root = service_root(app)?;
-    let data_dir = app
+    let legacy_dir = app
         .path()
         .app_data_dir()
         .map_err(|error| format!("Cannot locate app data directory: {error}"))?;
-    fs::create_dir_all(&data_dir).map_err(|error| format!("Cannot create app data directory: {error}"))?;
+    let home = app.path().home_dir().map_err(|error| format!("Cannot locate home directory: {error}"))?;
+    let standard_dir = home.join("Library/Application Support/MathGrader");
+    let data_dir = if !standard_dir.join("data/math-grader.sqlite3").is_file()
+        && legacy_dir.join("math-grader.sqlite3").is_file() {
+        legacy_dir
+    } else {
+        standard_dir
+    };
+    let logs_dir = data_dir.join("logs");
+    fs::create_dir_all(&logs_dir).map_err(|error| format!("Cannot create app log directory: {error}"))?;
 
     let log = OpenOptions::new()
         .create(true)
         .append(true)
-        .open(data_dir.join("local-service.log"))
+        .open(logs_dir.join("local-service.log"))
         .map_err(|error| format!("Cannot open local service log: {error}"))?;
     let stdout = log.try_clone().map_err(|error| error.to_string())?;
     let python = std::env::var("MATH_GRADER_PYTHON").unwrap_or_else(|_| "python3".to_string());

@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "model_routes": {
+    "integer": {"primary": "pp-ocrv6-small", "fallback": "qwen3-vl-4b-mlx-4bit"},
+    "decimal": {"primary": "pp-ocrv6-small", "fallback": "qwen3-vl-4b-mlx-4bit"},
+    "short_text": {"primary": "pp-ocrv6-medium", "fallback": "qwen3-vl-4b-mlx-4bit"},
+    "formula": {"primary": "pp-formulanet-plus-m", "fallback": "qwen3-vl-4b-mlx-4bit"}
+  },
+  "recognition": {"default": {"primary": "mock_primary"}},
+  "providers": {"mock_primary": {"type": "mock", "model": "mock-v1", "text": "23"}}
+}

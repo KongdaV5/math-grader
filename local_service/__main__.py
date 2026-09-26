@@ -1,23 +1,22 @@
 import argparse
 import logging
-import os
 from pathlib import Path
-import platform
+import os
+import shutil
+import sys
 
 from local_service.http_server import create_server
 from local_service.service import MathGraderService
 from local_service.worker import JobWorker
+from local_service.runtime_paths import RuntimePaths, default_root
 
 
 def default_data_dir():
-    if os.environ.get("MATH_GRADER_DATA_DIR"):
-        return Path(os.environ["MATH_GRADER_DATA_DIR"])
-    system = platform.system()
-    if system == "Darwin":
-        return Path.home() / "Library" / "Application Support" / "Math Grader"
-    if system == "Windows":
-        return Path(os.environ.get("LOCALAPPDATA", Path.home())) / "Math Grader"
-    return Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "math-grader"
+    root = default_root()
+    legacy = Path.home() / "Library" / "Application Support" / "Math Grader"
+    if not os.environ.get("MATH_GRADER_DATA_DIR") and legacy.joinpath("math-grader.sqlite3").is_file():
+        return legacy
+    return root
 
 
 def main():
@@ -34,12 +33,21 @@ def main():
     )
     args = parser.parse_args()
 
+    if sys.version_info[:2] < (3, 9):
+        parser.error("Math Grader requires Python 3.9 or newer")
+
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     data_dir = args.data_dir.expanduser().resolve()
+    paths = RuntimePaths(data_dir).ensure()
+    config_path = args.recognition_config
+    if config_path is None:
+        config_path = paths.config / "recognition.json"
+        if not config_path.exists():
+            shutil.copyfile(Path(__file__).parent / "config" / "recognition.json", config_path)
     service = MathGraderService(
-        database_path=data_dir / "math-grader.sqlite3",
+        database_path=paths.database,
         data_dir=data_dir,
-        recognition_config=args.recognition_config,
+        recognition_config=config_path,
     )
     worker = JobWorker(service)
     from local_service.capture_bridge import CaptureBridge

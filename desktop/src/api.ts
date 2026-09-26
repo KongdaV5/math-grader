@@ -107,19 +107,39 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(payload.error ?? `Local service returned ${response.status}`);
+    throw new Error(`${payload.code ? `${payload.code}: ` : ""}${payload.error ?? `Local service returned ${response.status}`}`);
   }
   return payload as T;
 }
 
 export const api = {
-  health: () => request<{ status: string; service: string }>("/health"),
+  health: () => request<{ status: string; service: string; runtime_version: string; python_supported: boolean }>("/health"),
+  overview: () => request<Overview>("/api/overview"),
+  system: () => request<SystemInfo>("/api/system"),
+  openDirectory: (key: string) => request<{path: string}>(`/api/system/open/${key}`, {method: "POST", body: "{}"}),
+  models: () => request<ModelStatus[]>("/api/models"),
+  modelAction: (id: string, action: string, body: Record<string, unknown> = {}) =>
+    request<ModelStatus | Record<string, unknown>>(`/api/models/${id}/${action}`, {method: "POST", body: JSON.stringify(body)}),
+  modelHealth: (id: string) => request<ProviderHealth>(`/api/models/${id}/health`),
+  templateGroups: () => request<TemplateGroup[]>("/api/templates/groups"),
+  createTemplateGroup: (body: Record<string, unknown>) => request<TemplateGroup>("/api/templates/groups", {method: "POST", body: JSON.stringify(body)}),
+  templatePages: (groupId: string) => request<PageTemplate[]>(`/api/templates/groups/${groupId}/pages`),
+  createTemplatePage: (groupId: string, body: Record<string, unknown>) =>
+    request<PageTemplate>(`/api/templates/groups/${groupId}/pages`, {method: "POST", body: JSON.stringify(body)}),
+  templatePage: (pageId: string) => request<PageTemplate>(`/api/templates/pages/${pageId}`),
+  importTemplateReference: (pageId: string, filename: string, image_base64: string) =>
+    request<PageTemplate>(`/api/templates/pages/${pageId}/reference`, {method: "POST", body: JSON.stringify({filename, image_base64})}),
+  createTemplateQuestion: (pageId: string, body: Record<string, unknown>) =>
+    request<TemplateQuestion>(`/api/templates/pages/${pageId}/questions`, {method: "POST", body: JSON.stringify(body)}),
+  createAnswerRegion: (questionId: string, body: Record<string, unknown>) =>
+    request<AnswerRegion>(`/api/templates/questions/${questionId}/regions`, {method: "POST", body: JSON.stringify(body)}),
   classes: () => request<ClassRecord[]>("/api/classes"),
   createClass: (name: string) => request<ClassRecord>("/api/classes", { method: "POST", body: JSON.stringify({ name }) }),
   students: (classId: string) => request<Student[]>(`/api/classes/${classId}/students`),
   createStudent: (classId: string, student_no: string, name: string) =>
     request<Student>(`/api/classes/${classId}/students`, { method: "POST", body: JSON.stringify({ student_no, name }) }),
   assignments: (classId: string) => request<Assignment[]>(`/api/classes/${classId}/assignments`),
+  submissions: (assignmentId: string) => request<Submission[]>(`/api/assignments/${assignmentId}/submissions`),
   createAssignment: (classId: string, name: string, date: string) =>
     request<Assignment>(`/api/classes/${classId}/assignments`, { method: "POST", body: JSON.stringify({ name, date }) }),
   createSubmission: (assignment_id: string, student_id: string) =>
@@ -137,6 +157,33 @@ export const api = {
   endCaptureSession: () =>
     request<CaptureSessionSnapshot>("/api/capture/session/end", { method: "POST", body: "{}" }),
 };
+
+export type Overview = {
+  counts: { classes: number; students: number; queued: number; processing: number };
+  recent_assignments: Array<Assignment & { created_at: string }>;
+  recent_submissions: Submission[];
+};
+export type ModelEntry = {
+  id: string; display_name: string; category: "ocr" | "formula" | "vision"; description: string;
+  source: string; source_repo: string[]; upstream_repo: string | null; runtime: string;
+  approximate_size_bytes: number; license: string; recommended: string; metadata: Record<string, string>;
+};
+export type ModelStatus = { model: ModelEntry; state: string; path: string | null;
+  progress: {completed_files: number; total_files: number | null; current_file: string | null} | null;
+  error: {code: string; message: string} | null; };
+export type ProviderHealth = { model_id: string; state: string; lifecycle: string; runtime_available: boolean; error?: string };
+export type SystemInfo = { paths: Record<string, string>; runtime_version: string; python_supported: boolean;
+  recognition_config: {schema_version: number; routes: string[]; model_routes: Record<string, unknown>} };
+export type TemplateGroup = {id: string; name: string; grade: string; semester: string; book_name: string;
+  publisher: string | null; version: number; created_at: string; updated_at: string};
+export type AnswerRegion = {id: string; question_id: string; region_index: number; x: number; y: number;
+  width: number; height: number; coordinate_space: "normalized"};
+export type TemplateQuestion = {id: string; page_template_id: string; question_no: string; answer_type: string;
+  correct_answer: string | null; accepted_answers: string[]; score: number; knowledge_tag: string | null;
+  regions: AnswerRegion[]};
+export type PageTemplate = {id: string; template_group_id: string; page_number: number; name: string;
+  reference_image: string | null; fingerprint: string | null; version: number; active: boolean;
+  questions: TemplateQuestion[]};
 
 export function fileAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {

@@ -15,6 +15,7 @@ from local_service.service import (
     ValidationError,
 )
 from local_service.state_machine import InvalidTransition
+from local_service.errors import DomainError
 
 
 logger = logging.getLogger(__name__)
@@ -54,6 +55,30 @@ class ServiceRequestHandler(BaseHTTPRequestHandler):
             segments = self._segments()
             if segments == ["health"]:
                 return self._send_json(200, self.server.service.health())
+            if segments == ["api", "overview"]:
+                return self._send_json(200, self.server.service.overview())
+            if segments == ["api", "system"]:
+                return self._send_json(200, self.server.service.system_info())
+            if segments == ["api", "models"]:
+                return self._send_json(200, self.server.service.model_manager.list_models())
+            if len(segments) == 3 and segments[:2] == ["api", "models"]:
+                return self._send_json(200, self.server.service.model_manager.get_model_status(segments[2]))
+            if len(segments) == 4 and segments[:2] == ["api", "models"]:
+                model_id, resource = segments[2], segments[3]
+                if resource == "health":
+                    return self._send_json(200, self.server.service.gateway.model_registry.health(model_id))
+                if resource == "manifest":
+                    return self._send_json(200, self.server.service.model_manager.verify_model(model_id))
+            if segments == ["api", "templates", "groups"]:
+                return self._send_json(200, self.server.service.templates.list_template_groups())
+            if len(segments) == 5 and segments[:3] == ["api", "templates", "groups"] and segments[4] == "pages":
+                return self._send_json(200, self.server.service.templates.list_page_templates(segments[3]))
+            if len(segments) == 4 and segments[:3] == ["api", "templates", "pages"]:
+                return self._send_json(200, self.server.service.templates.get_page_template(segments[3]))
+            if len(segments) == 5 and segments[:3] == ["api", "templates", "pages"] and segments[4] == "questions":
+                return self._send_json(200, self.server.service.templates.list_questions(segments[3]))
+            if len(segments) == 5 and segments[:3] == ["api", "templates", "questions"] and segments[4] == "regions":
+                return self._send_json(200, self.server.service.templates.list_answer_regions(segments[3]))
             if segments == ["api", "classes"]:
                 return self._send_json(200, self.server.service.list_classes())
             if len(segments) == 4 and segments[:2] == ["api", "classes"]:
@@ -79,6 +104,46 @@ class ServiceRequestHandler(BaseHTTPRequestHandler):
             segments = self._segments()
             body = self._read_json()
             service = self.server.service
+            if len(segments) == 4 and segments[:2] == ["api", "models"]:
+                model_id, action = segments[2], segments[3]
+                manager = service.model_manager
+                if action == "install":
+                    return self._send_json(202, manager.install_model(model_id))
+                if action == "retry":
+                    return self._send_json(202, manager.retry_install(model_id))
+                if action == "cancel":
+                    return self._send_json(200, manager.cancel_install(model_id))
+                if action == "remove":
+                    service.gateway.model_registry.unload(model_id)
+                    return self._send_json(200, manager.remove_model(model_id, service.gateway.model_registry.can_remove))
+                if action == "verify":
+                    return self._send_json(200, manager.verify_model(model_id))
+                if action == "open":
+                    return self._send_json(200, {"path": manager.open_model_directory(model_id)})
+                if action == "health":
+                    return self._send_json(200, service.gateway.model_registry.health(model_id, load=bool(body.get("load"))))
+            if len(segments) == 4 and segments[:2] == ["api", "system"] and segments[2] == "open":
+                return self._send_json(200, {"path": service.open_directory(segments[3])})
+            if segments == ["api", "templates", "groups"]:
+                return self._send_json(201, service.templates.create_template_group(
+                    body.get("name"), body.get("grade"), body.get("semester"), body.get("book_name"), body.get("publisher")))
+            if len(segments) == 5 and segments[:3] == ["api", "templates", "groups"] and segments[4] == "pages":
+                return self._send_json(201, service.templates.create_page_template(
+                    segments[3], body.get("page_number"), body.get("name")))
+            if len(segments) == 5 and segments[:3] == ["api", "templates", "pages"]:
+                page_id, action = segments[3], segments[4]
+                if action == "reference":
+                    return self._send_json(200, service.import_template_reference(page_id, body))
+                if action == "questions":
+                    return self._send_json(201, service.templates.create_question(
+                        page_id, body.get("question_no"), body.get("answer_type"), body.get("correct_answer"),
+                        body.get("accepted_answers"), body.get("score", 1), body.get("knowledge_tag"), body.get("metadata")))
+            if len(segments) == 5 and segments[:3] == ["api", "templates", "questions"] and segments[4] == "regions":
+                return self._send_json(201, service.templates.create_answer_region(
+                    segments[3], body.get("region_index"), body.get("x"), body.get("y"),
+                    body.get("width"), body.get("height"), body.get("metadata")))
+            if len(segments) == 4 and segments[:2] == ["api", "pages"] and segments[3] == "process":
+                return self._send_json(200, service.process_page_image(segments[2]))
             if segments == ["api", "capture", "session", "start"]:
                 return self._send_json(
                     201,
@@ -162,10 +227,18 @@ class ServiceRequestHandler(BaseHTTPRequestHandler):
         status = _error_status(error)
         if status == 500:
             logger.exception("Local service request failed", exc_info=error)
-        return self._send_json(status, {"error": str(error)})
+        code = error.code if isinstance(error, DomainError) else {
+            400: "VALIDATION_ERROR", 401: "UNAUTHORIZED", 404: "NOT_FOUND", 409: "INVALID_TRANSITION",
+            413: "PAYLOAD_TOO_LARGE", 415: "UNSUPPORTED_MEDIA_TYPE", 500: "INTERNAL_ERROR",
+        }.get(status, "INTERNAL_ERROR")
+        return self._send_json(status, {"error": str(error), "code": code})
 
 
 def _error_status(error):
+    if isinstance(error, DomainError):
+        return error.status
+    if isinstance(error, KeyError):
+        return 404
     if isinstance(error, Unauthorized):
         return 401
     if isinstance(error, NotFound):
@@ -176,7 +249,7 @@ def _error_status(error):
         return 413
     if isinstance(error, UnsupportedMediaType):
         return 415
-    if isinstance(error, ValidationError):
+    if isinstance(error, (ValidationError, ValueError)):
         return 400
     return 500
 
