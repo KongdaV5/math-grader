@@ -70,8 +70,19 @@ User-defined end-to-end target:
 - 明确未开始：Production Runtime Packaging、最终 Benchmark / Confidence；P2 仍是 `READY_FOR_DEVICE_TEST`。
 - 完整交接：`docs/project/handoffs/P5-L1-2026-09-26.md`。
 
-## LATER — P5-L1 之后
+## PARTIAL — P5-L2 Production Runtime Packaging + Standalone Desktop Delivery
 
-真实学生数据 Model Benchmark → Confidence / Human Review 深化 → Student History → Analytics → 正式 Python/依赖打包。当前不自动开始下一阶段。
+- Model request：GPT-6 Luna；本轮未使用 Sol，未委派其他模型进行实现或审查。
+- Branch：`phase/p5-l2`；Start SHA：`3d102bd24ddd56d0a5ac8380cfdee721e50574c7`。
+- Code implementation End SHA：`00063964819738c9153794cf485e096ae7ed12af`；后续文档提交与代码实现分开。
+- 状态：**PARTIAL**。Production `.app` 已构建并安装至 `~/Desktop/Math Grader.app`；包内 Python/runtime、模型推理、后端 P5 E2E、生产前端浏览器流程和 P2 Capture 浏览器回归已验证。Mac 锁屏导致原生窗口检查及 Finder 双击验收无法完成。
+- 交付：CPython 3.12.14 arm64 与锁定依赖随 `.app`，Release 不回退至系统 Python；服务由 Tauri 管理生命周期、日志和单实例；用户模型独立留在 `~/Library/Application Support/MathGrader/models/`。`.app` 约 1.3 GB、ad-hoc 签名并验证、未公证；当前目标 macOS 15.0+ arm64。
+- 验证：Python **103 passed**；compileall、uv lock check、React typecheck/build、前端坐标和 Capture URL tests、cargo check/4 Rust 单元测试、release `.app` 构建/架构与资源检查/codesign、包内四种真实模型烟雾测试、Installed app 双学生 P5 E2E 和 Capture/老师端浏览器 E2E 均通过。细节见 `TEST_STATUS.md` 和 P5-L2 handoff。
+- 未开始最终 Benchmark / Confidence；未使用真实学生照片；未打包模型权重；P2 仍保持 **READY_FOR_DEVICE_TEST**，未完成真实 iPhone Safari 验收。
+- 完整交接：`docs/project/handoffs/P5-L2-2026-09-26.md`。
+
+## LATER — P5-L2 之后
+
+先补完 P5-L2 原生桌面/Finder 启动验收，再按独立 handoff 完成 P2 真实 iPhone Safari Gate。P6 Model Benchmark、Confidence / Human Review 深化、Student History 和 Analytics 均未启动，需要后续明确授权。
 
 P0 Benchmark 子系统永久保留；P0-W2 不再是 P1 前置。

@@ -1,40 +1,33 @@
-# Math Grader — Local Application Foundation
+# Math Grader — Local Homework Capture and Grading
 
-P1-W1 adds a runnable local app skeleton on top of the retained P0-W1 benchmark foundation. The desktop uses Tauri 2, React and TypeScript; the local Python service owns SQLite access and a persistent sequential job queue. Recognition currently runs through a configurable Mock Provider. No real OCR/VLM model, model download, cloud API, or P2 Capture Bridge is included.
+Math Grader is a local-first macOS desktop app for collecting photographed homework, recognizing answers, grading deterministically, and sending uncertain results to teacher review. The current product UI includes the Submission Workspace, new-exam analysis, answer-key confirmation, Assignment template reuse, model center, and human review. P0 benchmark tooling remains in the repository but is not a model-quality claim.
 
-## Requirements and Python setup
+## Use the desktop app
 
-- Python 3.9 or newer
-- Runtime dependency: `jsonschema` for Draft 2020-12 validation
-- Development dependency: `pytest`
+Open **Math Grader.app** from Finder. The app includes its own Python runtime and starts its local service automatically; ordinary use does not require installing Python, opening Terminal, activating a virtual environment, or running a model server.
 
-From the project root:
+Recognition models are managed from **模型中心** and are stored separately from the app. They are not loaded or downloaded at app startup. App data and models remain in `~/Library/Application Support/MathGrader/` if the app is replaced or deleted.
+
+The current local app target is Apple Silicon with macOS 15.0 or newer. See [the user guide](docs/USER_GUIDE.md) for ordinary use and [the macOS build guide](docs/development/BUILD_MACOS.md) for developer packaging.
+
+## Developer setup
+
+Packaging the standalone app uses the pinned CPython 3.12.14 runtime, `uv.lock`, Node/npm, Rust/Cargo, and Xcode Command Line Tools. From the repository root, the complete build and local install command is:
 
 ```sh
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade 'pip>=23.1,<25'
-python -m pip install -e '.[dev]'
-python -m pytest
+./scripts/build_macos_app.sh
 ```
 
-## Run the desktop app
+The Tauri dev server, browser demo, service CLI, and test commands remain developer tools. They can use a developer Python environment; that path is separate from the installed production app runtime. See [BUILD_MACOS.md](docs/development/BUILD_MACOS.md) for requirements and details.
 
-The native Tauri app starts the local Python service when its window opens. Python 3.9+ and the Rust toolchain are required for local development. Install the web dependencies once, then:
+For a browser demo during development:
 
 ```sh
 cd desktop
-npm install
-npm run desktop:dev
-```
-
-To run the same React UI against the service in a browser for a quick local demo:
-
-```sh
 npm run demo:dev
 ```
 
-The demo uses a temporary data directory. Set `MATH_GRADER_PYTHON` to the desired Python executable if `python3` is not on `PATH`. Tauri uses the same variable to locate Python. The packaged app stores its SQLite database and uploaded page images under the operating system's Math Grader application-data folder. The local service binds only to `127.0.0.1:8765`.
+The demo uses a temporary data directory. The local management service listens on `127.0.0.1:8765`; Capture Bridge opens its separate LAN listener only during an active capture session.
 
 Check the frontend without opening a window:
 
@@ -45,7 +38,7 @@ npm run build
 
 ## Run the local service by itself
 
-From the project root:
+For development only, run from the project root with Python 3.12.14 and the locked runtime dependencies installed:
 
 ```sh
 python -m local_service
@@ -55,15 +48,15 @@ The default database is stored under the platform's local application-data direc
 
 ## Application flow
 
-Create a class, student, and Assignment in the desktop page. Start a student's Submission, add local image pages or test placeholder pages, and click **完成该生**. Only that action changes the Submission to the background queue. The UI keeps the selected student in place and polls for the Mock result.
+The teacher workspace shows each Assignment's students, Submissions, and uploaded pages. Choose an existing workbook or analyze a new exam once; after the teacher confirms the answer key, later students in that Assignment reuse its temporary template. Recognition uses local providers, deterministic answer rules produce grading decisions, and uncertain items remain in the human review queue.
 
 The Python service manages schema changes from `local_service/migrations/`, validates every Submission status transition in one state machine, and stores Recognition results and job failures in SQLite. Provider implementations are registered behind `RecognitionGateway`; adding a future provider does not require a Desktop or Submission-flow change.
 
-Run the application and existing P0 regression tests:
+Run the P0–P5 regression suite from a Python 3.12 development environment:
 
 ```sh
-.venv/bin/python -m pytest
-.venv/bin/python -m compileall -q benchmark local_service tests
+uv run --python 3.12.14 --extra dev --extra ocr --extra formula --extra vision python -m pytest
+uv run --python 3.12.14 --extra dev --extra ocr --extra formula --extra vision python -m compileall -q benchmark local_service tests
 ```
 
 ## Retained P0-W1 Benchmark foundation

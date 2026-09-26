@@ -1,7 +1,7 @@
 # 本地小学数学作业拍照批改系统
 ## 项目参考手册 / Architecture & Execution Playbook
 
-**版本：v0.6**
+**版本：v0.7**
 **日期：2026-09-26**
 **状态：当前项目主参考文档**  
 **适用对象：项目本人、Codex、Workbuddy、其他开发模型、后续维护者**
@@ -2165,7 +2165,7 @@ STOP
 
 # 45. 当前开发阶段顺序
 
-当前正式顺序为：
+当前正式顺序与状态为：
 
 ```text
 P0-W1 Benchmark Foundation 已 PASS（评测代码永久保留）
@@ -2174,27 +2174,15 @@ P1 Application Foundation 已 PASS
 ↓
 P2 Capture Bridge READY_FOR_DEVICE_TEST（真实 iPhone Gate 独立保留）
 ↓
-P3-X1 Product Framework & Model Runtime Foundation（当前工作包）
+P3-X1 Product Framework & Model Runtime Foundation PASS WITH BLOCKERS
 ↓
-图像 / 模板深化
+P4-X1 Template → Crop → Real Recognition → Result Inspection PASS
 ↓
-Recognition Integration
+P5-L1 Teacher Workflow + Auto Exam Template + Grading Vertical Slice PASS
 ↓
-真实 Model Benchmark（使用真实应用管线评估候选模型）
+P5-L2 Production Runtime Packaging PARTIAL（等待原生窗口 / Finder 验收）
 ↓
-Normalize
-↓
-Deterministic Grader
-↓
-Confidence / Human Review
-↓
-Student History
-↓
-Analytics
-↓
-Final Packaging
-↓
-后续可选：Continuity Camera 专业模式
+P6 Model Benchmark / Confidence 尚未开始，需后续明确工作包
 ```
 
 P0-W2 不再是 P1 的前置工作；真实模型 Benchmark 保留在识别集成之后。P1 的 Mock Provider 只验证应用边界与端到端流程，不构成模型质量证据。
@@ -2271,7 +2259,7 @@ V1 必须同时满足：
 | 中文手写 | 中高 | VLM |
 | 模型升级回归 | 高 | Golden Set |
 | 数据丢失 | 高 | Backup |
-| 完整批改 UI 早于识别管线 | 中 | P1 仅做班级与 Submission 最小操作面；完整批改与分析 UI 留到 P12 |
+| 模型质量尚未通过真实学生数据 Benchmark | 高 | 合成 E2E 仅证明集成路径；真实作业 Benchmark 独立设 Gate |
 | 模型过重 | 中 | P0 Benchmark |
 
 ---
@@ -2298,26 +2286,17 @@ V1 必须同时满足：
 
 # 49. 当前下一步
 
-P0-W1 Benchmark Foundation 与 P1 Application Foundation 已 PASS。P2 Capture Bridge 为 READY_FOR_DEVICE_TEST，真实 iPhone Safari 尚未验收。当前按新授权执行 P3-X1；P2 的设备 Gate 独立保留。
+P0-W1、P1、P3-X1、P4-X1、P5-L1 已按各自 Gate 完成。P5-L2 已交付可运行的独立 macOS app 和捆绑 Runtime，但原生窗口及 Finder 双击尚未验收，因此状态为 PARTIAL。P2 Capture Bridge 仍为 READY_FOR_DEVICE_TEST，真实 iPhone Safari Gate 独立保留。
 
 ```text
-P0-W1 Benchmark Foundation 已 PASS
+P5-L2：解锁 Mac 后补验原生桌面 UI / Finder 双击
 ↓
-P1 Application Foundation
+P2：真实 iPhone Safari Capture Bridge 验收
 ↓
-P2 Capture Bridge READY_FOR_DEVICE_TEST
-↓
-P3-X1 Product Framework & Model Runtime Foundation
-↓
-图像 / 模板深化
-↓
-Recognition Integration
-↓
-真实 Model Benchmark
+P6 Model Benchmark / Confidence：等待明确授权与真实数据范围
 ```
 
-模型 Benchmark 仍然保留，待本地采集、图像与识别接口形成后再用真实应用管线评估。P2 历史交付不包含真实 OCR/VLM；P3-X1 只搭模型运行基础，不提供准确率结论。
-- 完整客户端。
+模型 Benchmark 仍待明确授权。当前模型 smoke 与合成 E2E 证明运行链路，不提供真实作业准确率结论。
 
 ---
 
@@ -2450,4 +2429,15 @@ Auto Precision ≥ 99.5%
 5. P0 prediction adapter 可导出 JSONL，但所有输出仍为 `REVIEW_REQUIRED`；不将识别结果当 Ground Truth，不做最终判分、模型排名或低置信度自动策略。真实学生数据 Benchmark 后续另行进行。
 6. 真实模型在独立 Python 3.12 开发环境下可运行；打包 `.app` 已能启动并展示依赖健康，但仍依赖系统 Python 且未内嵌 OCR/Formula/MLX 等依赖。这是正式发布阻塞，不属于本轮 bundling 范围。旧 bundle-id 数据库仍原位读取，但若无旧模型安装清单，模型目录指向标准 MathGrader 路径；退出 app 时关闭本地服务。
 
-> **当前版本 v0.6 取代 v0.5，作为后续开发的唯一主参考基线。**
+> v0.6 曾取代 v0.5；当前主参考基线见下方 v0.7。
+
+## v0.7 变更摘要：P5-L2 Standalone Runtime
+
+1. P5-L2 将 relocatable CPython **3.12.14 arm64** 与锁定运行依赖打入 `.app`；Release 仅调用 bundle 内解释器，不使用系统或用户 Python fallback。历史 D-030 的系统 Python 发布阻塞已由 D-032 取代。
+2. Tauri 管理 Python 服务单实例、启动/退出和服务日志；主数据与模型保持在 `~/Library/Application Support/MathGrader/`，模型不随 `.app` 打包，启动时不加载模型权重。
+3. Runtime manifest 独立于 app version，记录 Python、架构、依赖、lockfile 与源码身份。当前 app version/runtime version 为 `0.1.0`；目标为 Apple Silicon arm64、macOS 15.0+。
+4. 本机 `.app` 安装路径为 `~/Desktop/Math Grader.app`，大小约 1.3 GB；本地 ad-hoc 签名与验证通过，但未公证、hardened runtime 关闭，不能视为公开分发签名完成。
+5. Python regression 为 **103 passed**，前端/Rust/build、包内 ImagePipeline/OCR/Formula/Qwen 4B smoke、合成数据 P5 双学生真实推理 E2E 和 Capture/老师端浏览器 E2E 通过。Mac 锁屏使原生窗口交互与 Finder 双击未验收，故 P5-L2 状态为 **PARTIAL**。
+6. P2 继续为 **READY_FOR_DEVICE_TEST**；真实 iPhone Safari 尚未验收。没有进行最终 Benchmark / Confidence，也未开始 P6。
+
+> **当前版本 v0.7 取代 v0.6，作为后续开发的唯一主参考基线。历史版本摘要保留当时的阶段边界和运行环境事实。**

@@ -217,3 +217,44 @@
 - `Recognition Lab` 保留为高级工具；老师开始普通 Assignment 后不需要进入该实验页。
 - 没有使用真实学生照片；没有开始 Production Runtime Packaging，也没有进行最终 Benchmark / Confidence。
 - P2 Capture Bridge regression 均通过，但真实 iPhone Safari 未验收。P2 继续保持 **READY_FOR_DEVICE_TEST**，不可据此标记 PASS。
+
+---
+
+# P5-L2 Production Runtime Packaging + Standalone Desktop Delivery
+
+## 基线与版本
+
+- Branch：`phase/p5-l2`；Start SHA：`3d102bd24ddd56d0a5ac8380cfdee721e50574c7`。
+- 最后代码提交 / Runtime manifest source SHA：`00063964819738c9153794cf485e096ae7ed12af`。Runtime manifest 中 app/runtime version 为 `0.1.0`。
+- 本轮开始前 Python regression：**97 passed**；完成后：**103 passed**。
+- 目标：Apple Silicon `arm64`、macOS **15.0+**。最终 app 安装在 `~/Desktop/Math Grader.app`，体积约 **1.3 GB**。
+
+## 自动化与打包验证
+
+- `.venv-p4/bin/python -m pytest -q`：**103 passed**；`compileall -q local_service scripts`：PASS；`uv lock --check`：PASS。
+- `npm run typecheck`、`npm run test:coordinates` (**2 passed**)、`npm run test:capture-url` (**2 passed**)、`npm run build`：PASS。
+- `cargo check`：PASS；`cargo test --lib`：**4 passed**。
+- `./scripts/build_macos_app.sh`：成功生成并安装 Release `.app`；包资源、arm64 本机架构、前端 dist 与 manifest 检查 PASS；bundle 不含 `.safetensors` 模型文件。
+- `codesign --verify --deep --strict`：PASS。该包使用 ad-hoc 签名、未公证且 `hardenedRuntime=false`；验证仅覆盖本地构建签名，不代表 Developer ID 发布准备完成。
+- `git diff --check`：实现提交时 PASS；文档变更另行检查。
+
+## 包内 Runtime 与真实模型 smoke
+
+- Installed app 服务使用的解释器为 `.app/Contents/Resources/runtime/python/bin/python3.12`，CPython **3.12.14 arm64**。从隔离数据目录、仓库外工作目录和精简环境启动成功；未依赖系统 Python、虚拟环境、`PYTHONPATH` 或开发仓库。
+- Startup `/health` 报告 `bundled_runtime=true`、Python 3.12.14、arm64、版本 `0.1.0` 与 capability 状态；Capture 默认 INACTIVE。服务退出后 Tauri 管理的服务子进程结束，8765/8766 均无 listener。
+- 真实包内模型 smoke 使用已有本机模型目录和合成图：ImagePipeline 成功；PP-OCRv6 Small 输出 `120`；Formula 模型输出 `\frac{1}{2}`；Qwen3-VL 4B 输出 `120`。没有下载或复制模型，模型未打入 `.app`。
+- 记录的 runtime 依赖版本：Pillow 11.3.0、NumPy 2.3.5、OpenCV 4.10.0、ONNX Runtime 1.30.0、Hugging Face Hub 1.33.0、PaddlePaddle 3.3.1、PaddleOCR 3.7.0、MLX 0.32.2、mlx-vlm 0.7.3；锁文件完整解析结果以 `uv.lock` 为准。
+
+## P5 installed app E2E 与浏览器 E2E
+
+- 使用最终安装 `.app` 的 bundled service 和隔离临时数据执行 Student A / Student B 全链路。Student A 最终三页（包括上传三页、删除中间页、重排后补拍）；finish 后推进 Student B。Qwen 4B 对 A 只做一次整页分析，老师确认临时模板；A 用 OCR、确定性判分和人工复核完成，最终 3/3。Student B 不再整页分析、复用同一 Assignment 模板并完成 Review，最终 3/3。所有图片、班级、学生均为合成测试数据。
+- Capture browser E2E：实际加载 app service 的 Capture 页面，完成预览重拍不上传、逐页即时上传、删除确认及重编号、替换页、finish 确认、自动下一学生和班级完成。
+- 老师 UI E2E：用 production frontend dist 的本地 preview 与隔离 app backend，浏览器实际打开 Review 并处理队列；Workspace 显示合成 Student C 三页原图、已确认且学生共用的临时模板、3/3 成绩和完成状态。此项验证的是生产构建前端经浏览器与服务的交互。
+- 原生 Tauri 窗口 / Finder 双击：**未验证**。Mac 处于锁屏状态，Computer Use 无法进行 UI 操作；再次打开已安装 app 时仍返回锁屏提示。此前直接启动 bundle executable 与 health/API 测试通过，但不能替代 Finder 双击或原生 UI 检查。
+
+## 运行目录、数据边界与未完成 Gate
+
+- `.app` 仅含应用代码、Capture 页面、runtime 与 dependencies；不含任何模型权重。模型保存在 `~/Library/Application Support/MathGrader/models/<model-id>/`，用户数据位于同一 MathGrader Application Support 树的 data/images/cache/logs/config 目录。
+- Python service 由 Tauri 管理单实例、干净启动环境、工作目录、日志和退出回收。旧式系统 Python fallback 已移除。Runtime manifest 单独记录 Python、架构、依赖版本、build date、lockfile hash 与源码 SHA。
+- 发行限制：macOS 15.0+ / arm64；本地包未公证、hardened runtime 关闭。正式 Developer ID 签名、公证和其他硬件/系统组合未验证。
+- P5-L2 状态：**PARTIAL**，待 Mac 解锁后验证原生窗口及 Finder 双击启动。P2 仍为 **READY_FOR_DEVICE_TEST**，真实 iPhone Safari 尚未测试。未做真实学生照片准确率 Benchmark；未启动 P6 Benchmark / Confidence。

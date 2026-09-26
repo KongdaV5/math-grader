@@ -2,17 +2,18 @@
 
 ## 当前状态
 
-- 阶段：**P5-L1 — Teacher Workflow + Auto Exam Template + Grading Vertical Slice**
-- 当前工作包：**P5-L1**
-- 状态：**PASS**（普通老师工作流已形成可运行纵向切片；测试使用合成试卷，不代表真实学生作业准确率）
-- Branch：`phase/p5-l1`
-- Start SHA：`c4316051ce3ead739f729b969275b17b52fc75c1`
-- P5-L1 Implementation End SHA：`6510dae56f7865c2eac9500b5b331faf14519275`
+- 阶段：**P5-L2 — Production Runtime Packaging + Standalone Desktop Delivery**
+- 当前工作包：**P5-L2**
+- 状态：**PARTIAL**（独立 `.app`、捆绑 Runtime 与真实模型后端已验证；Mac 锁屏使原生窗口检查和 Finder 双击验收未完成）
+- Branch：`phase/p5-l2`
+- Start SHA：`3d102bd24ddd56d0a5ac8380cfdee721e50574c7`
+- P5-L2 Code Implementation End SHA：`00063964819738c9153794cf485e096ae7ed12af`
+- P5-L1：**PASS**；交付基线见 TASK_BOARD 与 P5-L1 handoff。
 - P0-W1 Benchmark Foundation：**PASS，未重做**
 - P1-W1 Application Foundation：**PASS**
 - P2 Capture Bridge：**READY_FOR_DEVICE_TEST**；真实 iPhone Safari 尚未验收，不能标记 PASS。P2 设备验收 Gate 独立保留，当前分支未将 P2 合并到 main。
 - P3-X1 Implementation End SHA：`06cd1e3035e2b870ea208efd080f68810e6929b6`
-- P2 真实 iPhone Safari 设备验收独立保留；P5 不包含正式 Runtime Packaging 或最终 Benchmark / Confidence。
+- P2 真实 iPhone Safari 设备验收独立保留；P5-L2 未启动 P6 Benchmark / Confidence。
 
 ## P1-W1 基线
 
@@ -51,7 +52,8 @@
 ## 环境与已知限制
 
 - 完整 P1 浏览器 Mock E2E 作为历史验收证据保留。P2 桌面浏览器 Capture UI 流程已覆盖；真实 iPhone Safari 尚未测试。
-- 当前 Tauri app 从系统 `PATH` 启动 Python 3.9+；发布环境需安装 Python。服务代码与配置已随 `.app` resources 打包。
+- P5-L2 已将 CPython 3.12.14 与锁定依赖放入 `.app`，Release 使用包内明确路径且没有系统 Python fallback；此项取代 P1–P4 的历史运行方式。
+- 当前目标为 Apple Silicon arm64、macOS 15.0+。本地 `.app` 使用 ad-hoc 签名，未公证；尚未验证 Finder 双击启动与原生窗口交互，不能据此宣称已具备公开分发签名。
 - P2 未测试真实 iPhone Safari；在真实设备 Gate 通过前，不得声称 P2 PASS。
 - P2 历史交付不含真实 OCR、数学判分或模型 Benchmark；P3-X1 的真实模型边界见下节。
 
@@ -81,9 +83,20 @@
 - 普通批改路径使用现有 PP-OCR / Formula / Qwen 识别路由，经过确定性答案规则判分；低置信度、缺答案键或页题不匹配进入 Review。QuestionResult 与 Submission 分数在审核闭环完成后持久化。
 - 实际 Qwen3-VL 4B + PP-OCRv6 Small 的隔离数据 E2E：Student A 四页分析一次并确认 8 题，8/8 完成；Student B 四页复用同一 Assignment 模板，无二次整页分析，7/8 完成。另以桌面浏览器操作真实老师端：四页原图显示、32 个题目候选编辑/确认、Student A 进入待复核、Student B 直接复用模板并进入批改，Review 页面可人工处理单题。以上均为合成测试图，无真实学生数据。
 - P0–P4 回归及新增 P5 用例合计 **97 passed**；React TypeScript/Vite build、`cargo check`、`git diff --check` 通过。详细记录见 `TEST_STATUS.md` 与 P5-L1 handoff。
-- P2 仍为 **READY_FOR_DEVICE_TEST**，未因 P5 回归改为 PASS。正式 Python/依赖打包问题仍保留为发布风险。
+- P2 仍为 **READY_FOR_DEVICE_TEST**，未因 P5 回归改为 PASS。P5-L1 完成时，正式 Python/依赖打包仍是发布风险；该风险由后续 P5-L2 处理。
+
+## P5-L2 Production Runtime Packaging 交付结果
+
+- 分支：`phase/p5-l2`；Start SHA：`3d102bd24ddd56d0a5ac8380cfdee721e50574c7`；最后代码实现提交：`00063964819738c9153794cf485e096ae7ed12af`。安装位置：`~/Desktop/Math Grader.app`；runtime manifest 内 app/runtime 版本为 `0.1.0`，记录的源码 SHA 为最后代码提交。
+- `.app` 内含 relocatable CPython **3.12.14 arm64**、锁定的 Python 运行依赖和本地服务资源；系统/用户 Python fallback 已移除。Tauri 管理单实例和服务子进程退出，日志放在 Application Support；模型仍放在用户目录，不包含在 app 内。
+- Runtime 依赖锁在 `uv.lock`。本轮实际 bundle 版本包括 Pillow 11.3.0、NumPy 2.3.5、OpenCV 4.10.0、ONNX Runtime 1.30.0、Hugging Face Hub 1.33.0、PaddlePaddle 3.3.1、PaddleOCR 3.7.0、MLX 0.32.2、mlx-vlm 0.7.3。
+- 真实模型包内解释器 smoke：ImagePipeline、PP-OCRv6 Small、FormulaNet、Qwen3-VL 4B 均成功处理合成 fixture；没有下载、复制或打包模型权重。Installed app 的真实 P5 backend E2E 覆盖 Student A 最终三页（含删除、重排与补拍）、Student B 模板复用、分析一次、OCR、确定性评分、Review、最终 QuestionResult/Submission score。
+- P2 Capture browser 回归及生产前端 workspace/review Chrome E2E 通过；界面浏览器使用构建后的 frontend dist，真实 Tauri 原生窗口检查尚未通过。当前 Mac 锁屏，UI action 无法执行，Finder 双击也未能验收，因此 P5-L2 保持 **PARTIAL**。
+- `.app` 约 **1.3 GB**，本地 ad-hoc codesign 验证通过，未公证，hardened runtime 关闭。最低系统版本记录为 macOS **15.0**；Intel Mac 不在当前构建目标内。
+- P2 仍为 **READY_FOR_DEVICE_TEST**，真实 iPhone Safari 未测。没有进行真实学生作业准确率 Benchmark，也未开始 P6 Benchmark / Confidence。
 
 ## 下一步
 
-1. P2 真正 iPhone Safari 验收仍按独立 handoff 进行；验收通过后才能将 P2 标记 PASS。
-2. 本轮授权范围完成。Production Runtime Packaging 与最终 Benchmark / Confidence 均未开始，需等后续明确工作包。
+1. 解锁 Mac 后完成 P5-L2 原生窗口及 Finder 双击启动检查，再根据证据更新 P5-L2 状态；当前安装 app 和数据保留。
+2. P2 真正 iPhone Safari 验收仍按独立 handoff 进行；验收通过后才能将 P2 标记 PASS。
+3. 不自动开始 P6 Benchmark / Confidence；需后续明确工作包与数据验收范围。

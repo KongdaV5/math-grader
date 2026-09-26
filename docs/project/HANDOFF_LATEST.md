@@ -1,14 +1,16 @@
 # 最新交接
 
-- 工作包：**P5-L1 — Teacher Workflow + Auto Exam Template + Grading Vertical Slice**
-- 状态：**PASS**（本地老师工作流及合成数据双学生 E2E 通过；不代表真实作业准确率）
-- Branch：`phase/p5-l1`
-- Start SHA：`c4316051ce3ead739f729b969275b17b52fc75c1`
-- P5-L1 Implementation End SHA：`6510dae56f7865c2eac9500b5b331faf14519275`
-- 完整交接：[P5-L1-2026-09-26.md](handoffs/P5-L1-2026-09-26.md)
+- 工作包：**P5-L2 — Production Runtime Packaging + Standalone Desktop Delivery**
+- 状态：**PARTIAL**。独立 `.app`、bundle Python/runtime、真实模型 smoke、合成数据 P5 E2E、Capture 和老师端浏览器 E2E、P0–P5 regression 均通过；Mac 锁屏导致原生 Tauri UI 与 Finder 双击 Gate 未完成。
+- Branch：`phase/p5-l2`
+- Start SHA：`3d102bd24ddd56d0a5ac8380cfdee721e50574c7`
+- Code Implementation End SHA：`00063964819738c9153794cf485e096ae7ed12af`
+- 完整交接：[P5-L2-2026-09-26.md](handoffs/P5-L2-2026-09-26.md)
 
-普通老师批改路径现在可以直接查看 Submission 原图，选择已有题册或对新试卷进行 Qwen3-VL 4B 整页分析。老师一次确认后，Assignment 临时模板由后续学生复用；普通批改使用 PP-OCR / Formula / Qwen 答案识别、确定性规则、Human Review、QuestionResult 和 Submission score。隔离数据真实模型 E2E 完成 Student A 8/8、Student B 7/8；浏览器老师端四页 UI E2E 通过。Python **97 passed**，TypeScript/Vite 与 `cargo check` 通过。
+已构建并安装到 `~/Desktop/Math Grader.app` 的 app 大小约 1.3 GB，内含 CPython 3.12.14 arm64 与锁定依赖，不回退到系统 Python；模型留在 `~/Library/Application Support/MathGrader/models/`，启动不加载权重。本地 ad-hoc 签名验证通过；未公证，hardened runtime 关闭。目标为 macOS 15.0+ Apple Silicon。
 
-本轮没有开始 Production Runtime Packaging 或最终 Benchmark / Confidence；测试数据不含真实学生作业。P2 真实 iPhone Safari Gate 仍未验收，保持 **READY_FOR_DEVICE_TEST**。
+验证包括 Python **103 passed**、前端/Rust/build 检查、app 架构与资源、签名、包内 ImagePipeline/PP-OCR/Formula/Qwen 4B smoke、Installed app 的 Student A/B 临时模板复用与确定性评分 E2E、Capture 和老师端生产前端浏览器 E2E。测试数据为合成内容；没有真实学生照片或准确率结论。
 
-历史交接：[P4-X1-2026-09-26.md](handoffs/P4-X1-2026-09-26.md)、[P3-X1-2026-09-25.md](handoffs/P3-X1-2026-09-25.md)、[P2-2026-09-25.md](handoffs/P2-2026-09-25.md)。未合并 main，未 push，未启动后续工作包。
+下一步：Mac 解锁后补验 Finder 双击启动与原生窗口交互；完成前 P5-L2 保持 PARTIAL。P2 仍为 **READY_FOR_DEVICE_TEST**，真实 iPhone Safari 未验收。未开始 P6 Benchmark / Confidence。
+
+历史交接：[P5-L1-2026-09-26.md](handoffs/P5-L1-2026-09-26.md)、[P4-X1-2026-09-26.md](handoffs/P4-X1-2026-09-26.md)、[P3-X1-2026-09-25.md](handoffs/P3-X1-2026-09-25.md)、[P2-2026-09-25.md](handoffs/P2-2026-09-25.md)。未 push，未合并 main。
