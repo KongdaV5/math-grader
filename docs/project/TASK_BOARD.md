@@ -16,11 +16,18 @@
 - 测试：原 P0 28 项回归及 P1 12 项新测试全部通过，总计 40 项。
 - 完整交接：`docs/project/handoffs/P1-W1-2026-09-25.md`。
 
-## NEXT — P2 Capture Bridge
+## IN PROGRESS — P2 Capture Bridge
 
-- Status：NOT STARTED；仅在单独启动 P2 时执行。
-- 前置：复用 P1 Submission 状态机和每页上传 API，设计 Capture Session、设备授权、断线恢复、多页隔离和明确的“完成该生”切换。
-- Do not：不改成拍一页自动换学生；不要把图片处理、模板、真实 OCR 顺手并入 P2。
+- Owner：Codex GPT-6 Luna
+- Status：**PARTIAL**；实现已提交，Python、React、Rust 与 Tauri 检查通过；完整浏览器 UI E2E 仍需在 Mac 解锁后补验。
+- Branch：`phase/p2`
+- Start SHA：`83305d6f94d144ff2261340ad91f9b565ab071ad`
+- Implementation End SHA：`37887fd3df772a0440580ca384843388a2de9e71`
+- 交付：独立 Capture LAN 监听器、Session token/hash 与生命周期、手机 Safari 原生相机入口、每页即时上传、缩略图/删除/重排、明确 finish、班级顺序推进、二维码及 Mac 后台队列状态。
+- 自动测试：51 passed（P1 40 项回归 + P2 11 项）；完整验证矩阵见 `TEST_STATUS.md`。
+- Browser E2E：已验证 Mac UI 建立样例班级/作业、生成真实二维码、手机等价页面即时上传 3 张测试图片、拍页不切换学生、刷新恢复。锁屏前未验证删除确认、finish 换学生和后台队列 UI；不得将其标为通过。
+- Gate：Mac 解锁后完成剩余桌面浏览器 E2E，全部通过后转 `READY_FOR_DEVICE_TEST`；真实 iPhone Safari 验收完成前 P2 不得标记 PASS。
+- Do not：不开发 OCR/VLM、图像处理、模板、判分、Continuity Camera、iOS 原生 App，也不开始 P3。
 
 ## LATER — P3 至 P6
 

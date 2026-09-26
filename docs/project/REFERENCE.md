@@ -1,7 +1,7 @@
 # 本地小学数学作业拍照批改系统
 ## 项目参考手册 / Architecture & Execution Playbook
 
-**版本：v0.3**
+**版本：v0.4**
 **日期：2026-09-25**
 **状态：当前项目主参考文档**  
 **适用对象：项目本人、Codex、Workbuddy、其他开发模型、后续维护者**
@@ -1123,6 +1123,21 @@ Mac 落盘
 - 完成按钮才切学生；
 - Session 不断开；
 - Mac 能实时显示当前状态。
+
+## 21.5 P2 实现边界（v0.4）
+
+- Desktop/internal API 保持 loopback `127.0.0.1:8765`；只有显式开启 Capture Session 才在用户选择的 RFC1918 LAN 地址启动独立 listener（默认 `8766`）。LAN listener 只公开 `/capture`、当前 Session 查询、页面图片读取、图片上传、单页删除和当前 Submission finish，不承载完整 admin API。
+- Session token 为 32-byte CSPRNG URL-safe token；数据库只持久化 SHA-256 hash。默认 8 小时过期；结束、过期、服务退出/重启都会关闭 listener 或使旧 token 失效。二维码只编码 `http://<LAN-IP>:8766/capture?t=<token>`；手机页面拿到后把 token 移入 `sessionStorage` 并清理地址栏 query。
+- 手机通过原生 `<input type="file" accept="image/*" capture="environment">` 调起拍照；预览确认后按页立即上传。每张图上限 10 MiB，验证 MIME 与文件签名、拒绝空/非图片；使用内部 page UUID 保存到 Mac，数据库记录 submission/page index、原始文件名、MIME、字节数、上传时间与内容 SHA-256。UUID `Idempotency-Key` 防止重试产生重复页；文件名不作为路径。
+- 上传必须携带拍照时的 `X-Capture-Submission-ID`，并再次对照 Session 当前 Submission，阻断延迟上传串入下一学生。页面删除后数据库页号连续重排。
+- 手机每 2 秒轮询当前状态。只有确认完成当前学生才将 Submission 原子进入 READY / QUEUED、创建一个 job 并推进到下一位 active student；worker 不阻塞手机采集，末位完成后显示班级完成。
+- Capture surface 要求精确 Host，并校验 Origin 与 `Sec-Fetch-Site`，不启用 CORS；响应禁止缓存、禁止嗅探并设置 Referrer Policy / CSP。二维码 token 不写入服务日志。它是同一局域网内的短期采集授权，不替代设备级企业身份体系。
+
+## 21.6 P2 当前交付 Gate
+
+- 自动化实现测试、TypeScript/Rust 检查与 Tauri build 已通过；Capture 浏览器已实测 QR、三张图片逐张上传、拍页不换学生与刷新恢复。
+- 当前交付状态为 **PARTIAL**：Capture browser 的删除/重排、finish 后切换、后台 queue 可视步骤未完成 UI 实测（Mac 锁屏后无法继续派发 UI 交互）。完成这些并全通过后改为 `READY_FOR_DEVICE_TEST`。
+- 真实 iPhone Safari 未测试。真实设备步骤见最新 handoff；未获得真实设备证据时禁止把 P2 标成 PASS。
 
 ---
 
@@ -2283,7 +2298,7 @@ V1 必须同时满足：
 
 # 49. 当前下一步
 
-P0-W1 Benchmark Foundation 已 PASS。当前工作包为 P1 Application Foundation；完成并通过交接后停止，不自动进入 P2。
+P0-W1 Benchmark Foundation 与 P1 Application Foundation 已 PASS。当前工作包为 P2 Capture Bridge，交付状态为 PARTIAL；先完成浏览器 UI 验收及 iPhone 设备 Gate，再决定是否启动 P3。
 
 ```text
 P0-W1 Benchmark Foundation 已 PASS
@@ -2301,7 +2316,7 @@ P5 Recognition Integration
 P6 Model Benchmark
 ```
 
-模型 Benchmark 仍然保留，只是等本地采集、图像与识别接口形成后，再用真实应用管线评估模型。P1 不接真实 OCR，不开始 P2。
+模型 Benchmark 仍然保留，只是等本地采集、图像与识别接口形成后，再用真实应用管线评估模型。P2 不接真实 OCR/VLM，不开始 P3。
 - 完整客户端。
 
 ---
@@ -2399,4 +2414,16 @@ Auto Precision ≥ 99.5%
 
 ---
 
-> **当前版本 v0.3 取代 v0.2，作为后续开发的唯一主参考基线。**
+## v0.4 变更摘要
+
+相对 v0.3：
+
+1. 记录 P2 Capture Bridge 的独立 loopback/LAN 监听边界、Session token hash 与失效生命周期；
+2. 明确逐页即时上传的文件验证、元数据、内部文件名、删除重排与重复请求处理；
+3. 明确只有确认完成当前学生后才排队并推进下一学生；手机刷新恢复和队列并行；
+4. 记录当前 P2 为 PARTIAL，完整浏览器 UI 验收后才能进入真实 iPhone 测试 Gate；
+5. 保留 Python 3.9+ 系统运行时为正式发布阻塞项，不扩展到 OCR/VLM 或 P3。
+
+---
+
+> **当前版本 v0.4 取代 v0.3，作为后续开发的唯一主参考基线。**
