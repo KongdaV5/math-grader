@@ -1,14 +1,14 @@
 # 最新交接
 
-- 工作包：**P3-X1 Product Framework & Model Runtime Foundation**
-- 状态：**PASS WITH BLOCKERS**
-- Branch：`phase/p3-x1`
-- Start SHA：`cc871a733fb942e42d3e156282596f31212312d0`
-- Implementation End SHA：`06cd1e3035e2b870ea208efd080f68810e6929b6`
-- 交接文件：[P3-X1-2026-09-25.md](handoffs/P3-X1-2026-09-25.md)
+- 工作包：**P4-X1 — Template → Crop → Real Recognition → Result Inspection**
+- 状态：**PASS**，正式 Python/依赖打包仍是发布阻塞
+- Branch：`phase/p4-x1`
+- Start SHA：`fa9564d5a5ad47f6dffcd52914d0546f18e41589`
+- Implementation End SHA：`46ca268316e30ed9fc438c4d178f948807419208`
+- 完整交接：[P4-X1-2026-09-26.md](handoffs/P4-X1-2026-09-26.md)
 
-P3-X1 已加入九页产品 Shell、统一运行数据目录、五候选 Model Catalog、带 staging 和验证的 ModelManager、延迟加载 Provider、独立 ImagePipeline 和 Template migration/API/UI。Small 官方 ONNX 双模型真实下载/加载/删除闭环通过；Python 73 项全通过，前端/Tauri 构建及 `.app` 原生页面启动通过。
+P4-X1 已打通原图上传、后台 ImagePipeline、模板人工绑定与版本快照、多个答案区域裁图、真实 Small/Medium/Formula/4B 模型识别、持久 RecognitionRun、桌面实验室结果检查与 P0 prediction JSONL。Python 85 项、坐标转换 2 项以及前端/Tauri 构建、打包 app 启动和 P2 浏览器回归均通过。
 
-真实 OCR 后处理/Formula 推理未完成，MLX 权重未下载；系统 Python 及依赖仍是发布阻塞。P2 浏览器回归使用合成图片重新通过，但真实 iPhone Safari 尚未验收，P2 仍为 `READY_FOR_DEVICE_TEST`，不得标记 PASS。
+真实模型验证使用独立 Python 3.12 开发环境和合成/官方测试图；尚无真实学生作业 Benchmark、最终判分或模型排名。打包 app 的系统 Python 3.9.6 可启动，OCR/Formula/MLX 等依赖未随包交付，设置页如实显示缺失。P2 真机 iPhone Safari 仍未验收，保持 **READY_FOR_DEVICE_TEST**。
 
-历史交接：[P2-2026-09-25.md](handoffs/P2-2026-09-25.md)、[P1-W1-2026-09-25.md](handoffs/P1-W1-2026-09-25.md)。未合并 main，未开始下一阶段。
+历史交接：[P3-X1-2026-09-25.md](handoffs/P3-X1-2026-09-25.md)、[P2-2026-09-25.md](handoffs/P2-2026-09-25.md)。未合并 main，未启动下一阶段。

@@ -37,8 +37,18 @@
 - Blockers：OCR 真正的检测+识别后处理、Formula 本地推理、MLX 大模型运行未完成；正式 `.app` 仍依赖系统 Python 3.9+ 及另行安装 Python 依赖。
 - 不做真实模型准确率 Benchmark、最终判分、完整人工复核或云服务。
 
-## LATER — P3-X1 之后
+## DONE — P4-X1 Template → Crop → Real Recognition → Result Inspection
 
-图像/模板深化 → Recognition Integration → 真实 Model Benchmark → Normalize → Deterministic Grader → Confidence / Human Review → Student History → Analytics → Final Packaging。
+- Branch：`phase/p4-x1`，从 `fa9564d5a5ad47f6dffcd52914d0546f18e41589` 创建；未合并 main。
+- Implementation End SHA：`46ca268316e30ed9fc438c4d178f948807419208`。
+- 状态：**PASS**；手机上传异步 Image Job、模板编辑/版本快照、候选匹配、裁图、真实识别路由与历史、Recognition Lab 和 P0 prediction adapter 均形成可检查的纵向链路。
+- 真实运行：PP-OCRv6 Small/Medium、PP-FormulaNet_plus-M、Qwen3-VL 4B MLX 4bit 均通过本地安装及推理。8B 未安装，尚无真实学生照片 Benchmark 或最终模型排名。
+- 验证：Python **85 passed**、前端坐标 **2 passed**、TypeScript/Vite、cargo check、Tauri dev/build/打包 app 启动及 P2 浏览器回归均通过。
+- Release blocker：正式 `.app` 使用系统 Python 与未随包提供的 OCR/Formula/MLX 依赖；运行环境页已明确显示。P2 仍为 `READY_FOR_DEVICE_TEST`。
+- 完整交接：`docs/project/handoffs/P4-X1-2026-09-26.md`。
+
+## LATER — P4-X1 之后
+
+真实学生数据 Model Benchmark → 确定性判分 → Confidence / Human Review → Student History → Analytics → 正式 Python/依赖打包。当前不自动开始下一阶段。
 
 P0 Benchmark 子系统永久保留；P0-W2 不再是 P1 前置。

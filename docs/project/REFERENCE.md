@@ -1,8 +1,8 @@
 # 本地小学数学作业拍照批改系统
 ## 项目参考手册 / Architecture & Execution Playbook
 
-**版本：v0.5**
-**日期：2026-09-25**
+**版本：v0.6**
+**日期：2026-09-26**
 **状态：当前项目主参考文档**  
 **适用对象：项目本人、Codex、Workbuddy、其他开发模型、后续维护者**
 
@@ -2439,4 +2439,15 @@ Auto Precision ≥ 99.5%
 5. 增加模板迁移与归一化答案区域，图像预处理采用保留原图的独立手动入口；
 6. 模型 Provider 延迟加载，尚未实现的真实识别路径必须明确标为未集成。
 
-> **当前版本 v0.5 取代 v0.4，作为后续开发的唯一主参考基线。**
+> v0.5 曾取代 v0.4；当前基线见下方 v0.6。
+
+## v0.6 变更摘要：P4-X1 真实识别纵向链路
+
+1. P4-X1 从指定 P3 HEAD 独立成 `phase/p4-x1`。P2 仍是 `READY_FOR_DEVICE_TEST`，真实 iPhone Safari Gate 保留；P3-X1 历史状态不改。
+2. 正式路径为上传原图 → 异步 Image Job → processed page → 人工模板绑定及版本快照 → 多 AnswerRegion 裁图 → 本地真实 Provider → 独立 RecognitionRun → 设置中的识别实验室检查。Image Job 复用已有 SQLite 队列；手机无需等待 OpenCV 完成。
+3. Template Editor 用归一化 0..1 坐标保存拖框/重画结果，允许一题多区域，受控 answer_type。参考图与裁图位于 Application Support 管理目录。ORB/RANSAC 候选匹配只辅助人工绑定，低分拒绝推荐。
+4. PP-OCRv6 Small/Medium 共用 ONNX 检测、DB 后处理、文字裁图与官方字典 CTC 解码。Formula 使用本地 PaddleOCR `FormulaRecognition`，Qwen3-VL 4B 使用 MLX Community 4bit 权重和独立业务 prompt Strategy；8B 不安装。模型文件按 ModelManager 安装清单固定 revision，RecognitionRun 保存 revision、原文、标准化候选、confidence、耗时、状态及错误。
+5. P0 prediction adapter 可导出 JSONL，但所有输出仍为 `REVIEW_REQUIRED`；不将识别结果当 Ground Truth，不做最终判分、模型排名或低置信度自动策略。真实学生数据 Benchmark 后续另行进行。
+6. 真实模型在独立 Python 3.12 开发环境下可运行；打包 `.app` 已能启动并展示依赖健康，但仍依赖系统 Python 且未内嵌 OCR/Formula/MLX 等依赖。这是正式发布阻塞，不属于本轮 bundling 范围。旧 bundle-id 数据库仍原位读取，但若无旧模型安装清单，模型目录指向标准 MathGrader 路径；退出 app 时关闭本地服务。
+
+> **当前版本 v0.6 取代 v0.5，作为后续开发的唯一主参考基线。**

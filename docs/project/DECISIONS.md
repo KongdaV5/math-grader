@@ -26,3 +26,10 @@
 - **D-022 模型候选与安装分离**：版本化 Catalog 只记录候选来源；模型文件仅在用户显式安装时进入 Application Support 的 `models/`，先 staging、验证后原子落盘。Qwen 原始模型与 MLX Community 转换版分别标注，最终默认模型由后续真实 Benchmark 决定。
 - **D-023 Provider 边界**：Submission 继续依赖 Recognition Gateway；模型 Provider 按 Catalog ID 延迟发现与加载。P3-X1 不把未实现的 OCR 后处理或公式推理说成真实识别能力。
 - **D-024 图像与模板渐进接入**：原图保留，ImagePipeline 手动生成 processed 副本，不自动加到 P2 上传路径；TemplateGroup/PageTemplate/Question/AnswerRegion 使用独立 migration 和归一化 0..1 坐标。
+- **D-025 P4 后台图像作业**：手机确认上传后先安全保存原图并快速返回；复用 SQLite jobs/worker 处理 ImagePipeline，图像质量异常记 WARNING，可继续绑定模板与裁图；无法解码等错误记 FAILED。
+- **D-026 模板绑定与历史语义**：AnswerRegion 坐标统一为 0..1，保存前严格校验；题目和区域修改提升模板版本。每次 SubmissionPage 人工绑定保存模板和 processed image 快照，旧 Crop/RecognitionRun 不随模板编辑静默改变。
+- **D-027 模板候选不自动绑定**：ORB/RANSAC 只提供候选分数，低分返回 `NO_CONFIDENT_TEMPLATE_MATCH`；老师明确选择后才建立 binding。
+- **D-028 候选识别与判分分离**：P4 使用真实 Small/Medium OCR、Formula 与 4B VLM 生成可追溯 RecognitionRun；路由与 fallback 仅在错误/不可用或人工指定时触发，不以猜测阈值决定最终对错。P0 export 仍标记 `REVIEW_REQUIRED`，Ground Truth 独立。
+- **D-029 模型版本与运行边界**：模型仅经 ModelManager 显式安装并记录 resolved revision；Provider 只使用本地路径，不增加云端 fallback。Qwen 4B 的业务 prompt 放在 Strategy，Provider 接受调用方 prompt；8B 本轮不安装。
+- **D-030 P4 发布边界**：开发机 Python 3.12 独立环境验证真实 Formula/MLX；正式 `.app` 仍从系统 Python 启动，Python 与依赖尚未打包。设置页显式展示缺失依赖，发布前必须解决，P4 不做完整 bundling 重构。
+- **D-031 旧数据与新模型共存**：若 Tauri 仍读取旧 bundle-id 数据库且旧模型目录没有安装清单，ModelManager 使用标准 `Application Support/MathGrader/models`，避免旧数据兼容模式遮蔽已正式安装的模型。应用退出时显式关闭其本地服务；本地开发可用绝对路径 `MATH_GRADER_DATA_DIR` 隔离测试数据。

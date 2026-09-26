@@ -2,16 +2,17 @@
 
 ## 当前状态
 
-- 阶段：**P3-X1 — Product Framework & Model Runtime Foundation**
-- 当前工作包：**P3-X1**
-- 状态：**PASS WITH BLOCKERS**（产品与安装闭环通过；真实 OCR 后处理、Formula 本地推理及正式 Python 运行时打包仍待后续，详见 P3-X1 handoff）
-- Branch：`phase/p3-x1`
-- Start SHA：`cc871a733fb942e42d3e156282596f31212312d0`
+- 阶段：**P4-X1 — Template → Crop → Real Recognition → Result Inspection**
+- 当前工作包：**P4-X1**
+- 状态：**PASS**（真实 Small、Medium、Formula、4B 模型链路及客户端检查已通过；正式 Python/依赖打包仍是发布阻塞）
+- Branch：`phase/p4-x1`
+- Start SHA：`fa9564d5a5ad47f6dffcd52914d0546f18e41589`
+- P4-X1 Implementation End SHA：`46ca268316e30ed9fc438c4d178f948807419208`
 - P0-W1 Benchmark Foundation：**PASS，未重做**
 - P1-W1 Application Foundation：**PASS**
 - P2 Capture Bridge：**READY_FOR_DEVICE_TEST**；真实 iPhone Safari 尚未验收，不能标记 PASS。本轮按新授权启动 P3-X1，未合并 P2 到 main。
-- Implementation End SHA：`06cd1e3035e2b870ea208efd080f68810e6929b6`
-- 下一 Gate：P2 真实 iPhone Safari 设备验收独立保留；P3-X1 后续进入图像/模板深化与识别集成。
+- P3-X1 Implementation End SHA：`06cd1e3035e2b870ea208efd080f68810e6929b6`
+- 下一 Gate：P2 真实 iPhone Safari 设备验收独立保留；P4 完成后停止，不自动开始判分。
 
 ## P1-W1 基线
 
@@ -62,7 +63,16 @@
 - Python 全套 **73 passed**（P0/P1/P2 原 51 项 + P3-X1 新 22 项）；TypeScript、Vite、cargo check、Tauri dev/build/app startup 与浏览器回归均通过。
 - 真实 PP-OCR 检测后处理/识别拼接未接入；Formula 仍是安装/依赖/错误边界；MLX 未下载大权重且未实测推理。当前 Submission 默认仍走 Mock，不能声称真实识别准确率。
 
+## P4-X1 交付结果
+
+- 手机上传原图快速落盘，独立 Image Job 后台运行 ImagePipeline；SubmissionPage 保存 PENDING / PROCESSING / READY / WARNING / FAILED 与质量、变换信息。
+- 模板编辑器支持参考图、题目字段、受控答案类型、多个归一化答案区域、拖框/重画/删除及版本快照；候选匹配仅供人工选择，低分返回 `NO_CONFIDENT_TEMPLATE_MATCH`。
+- 模板绑定后从 processed page 生成带坐标、题号、region_index 和版本的持久裁图；每次真实模型识别写入独立 RecognitionRun，历史保留并可导出 P0 prediction JSONL。
+- PP-OCRv6 Small 和 Medium 使用同一完整 ONNX 检测、DB 后处理、裁图、CTC 字典解码管线；Formula 使用本地 PaddleOCR 官方模型；Qwen3-VL 4B 使用本地 MLX 权重。上述四种候选均有实际推理记录，尚无真实学生数据 Benchmark 或最终模型排名。
+- Recognition Lab 位于设置的高级工具；Settings 显示依赖健康；Model Center 区分安装与 Provider 可用/已加载。
+- P2 浏览器拍摄回归完成，真实 iPhone Safari 尚未验收，**P2 仍为 READY_FOR_DEVICE_TEST**。
+
 ## 下一步
 
-1. 由用户按 handoff 步骤用真实 iPhone Safari 验收；用户确认通过后再标记 P2 PASS。
-2. 图像/模板深化 → Recognition Integration → 真实 Model Benchmark；不提前选择最终模型或开始判分。
+1. 用户按 P2 handoff 使用真实 iPhone Safari 验收；确认通过后才能将 P2 标记 PASS。
+2. 后续阶段需处理正式 Python/依赖打包与真实作业 Benchmark；当前不开始数学判分。

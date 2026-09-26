@@ -131,3 +131,39 @@
 
 - PP-OCR ONNX 模型可真实加载，但尚无检测后处理与识别拼接；Formula 只具备检测/依赖/错误接口；MLX VLM 用本地安装路径的适配器尚无权重实测。Submission 默认仍经 Mock Provider。
 - `.app` 继续由系统 Python 3.9+ 启动；正式发布仍需解决 Python 及 Python 依赖随包交付。
+
+---
+
+# P4-X1 Template → Crop → Real Recognition → Result Inspection 测试状态
+
+## 基线与自动化
+
+- Branch：`phase/p4-x1`，Start SHA：`fa9564d5a5ad47f6dffcd52914d0546f18e41589`；开始前 P0–P3 Python **73 passed**。
+- Implementation End SHA：`46ca268316e30ed9fc438c4d178f948807419208`。
+- `.venv/bin/python -m pytest -q`：**85 passed**（原 73 项 + P4 新增 12 项）。
+- Python `compileall`、React TypeScript typecheck、Vite build、`cargo check`：**PASS**；坐标转换 Node tests：**2 passed**。
+- `npm run desktop:dev`：Tauri 原生进程启动且 `/health` 返回 Python 3.12.14；`npm run desktop:build`：**PASS**，最终 `.app` 直接启动并在原生窗口显示 P4-X1 与设置页依赖状态。
+- `git diff --check`：**PASS**。真实模型权重不在 pytest 中下载或运行。
+
+## 真实模型与纵向 E2E
+
+- ModelManager 正式路径安装：PP-OCRv6 Small 31,628,665 bytes、Medium、PP-FormulaNet_plus-M、Qwen3-VL 4B MLX 4bit；8B 未安装。安装清单保留各源仓库 resolved revision。
+- Small ONNX 检测 + DB 后处理 + 文本裁图 + CTC 解码：合成测试页 4 个 crop 经 Desktop Recognition Lab 输出 `120`、`3456`、`A`、`<`，四个 SUCCESS 记录持久化；单个冷次 1151 ms，暖次 221–232 ms。官方 PaddleOCR `general_ocr_002.png` 示例图检测 33 框，输出非空文本，confidence 0.97304、495 ms。
+- Medium 经同一 Provider 管线在相同 crop 输出 `120`，SUCCESS，首次 1406 ms；该结果只证明运行路径，不构成准确率比较。
+- Formula 官方 PaddleOCR 本地模型在合成分数 crop 经模板绑定、裁图、RecognitionRun 和 UI 显示 `\\frac{1}{2}`，SUCCESS，首次 6635 ms。单图手动 smoke 还覆盖乘法表达式与上下结构；上下结构输出不准确，需后续 Benchmark 评估。
+- 4B MLX 本地权重在同一 `120` crop 经完整 E2E 输出 `120`，SUCCESS，UI 显示 revision 与 2532 ms。独立五例 smoke：单数字 `7`、多位整数 `3456`、选项 `B`、符号 `>`、轻微改动 `12`；加载约 1758 ms，单例暖次 718–1060 ms，进程峰值 RSS 3,480,600,576 bytes。无 8B 测试。
+- ImagePipeline 合成单页手动计时 591.3 ms（这张白底样例提示 `OVEREXPOSED`）；手机上传不等待处理完毕。
+- 无 Desktop CLI 隔离 smoke：经 ModelManager 在 `/tmp` 安装 Small 后，`python -m local_service.recognition_cli --json` 对四区域合成页返回 exit 0、四个 SUCCESS 与 `120` / `3456` / `A` / `<`。
+
+## 浏览器与 P2 回归
+
+- 浏览器模板页：创建组/页、导入参考图、四题四区域、重新打开恢复；公式页区域通过鼠标拖动重画，数据库归一化坐标随之更新。
+- Recognition Lab：导入合成作业页、候选分数 0.83、人工绑定 v10、显示处理图/四个 overlay/四张 crop、执行 Small/Medium/4B/Formula、同一 crop 多模型历史、P0 JSONL 导出入口；真实识别结果经 UI 可见。
+- P2 浏览器：两名合成测试学生、二维码与独立 LAN 页面、预览重拍不计页、三页即时上传、删除中间页后后续页号连续、重新上传、刷新恢复、明确 finish 后自动下一学生、第二名独立采集、Mac 显示 2/2；数据库两名 Submission 均 COMPLETED，四张最终页面为 WARNING。临时 Session 已 END，真实 iPhone Safari **未验收**。
+
+## 验证边界与发布阻塞
+
+- 合成图与官方示例只证明集成和运行，不代表真实学生书写识别准确率。当前不做自动判分或最终 confidence 策略。
+- 打包 `.app` 的原生模型中心显示四个已安装模型并如实标注 Provider 不可用；设置页显示系统 Python 3.9.6 可启动，但 Pillow、OpenCV、ONNX Runtime、Hugging Face Hub、mlx-vlm、PaddleOCR/PaddlePaddle 均缺失。退出应用后 8765 listener 关闭。正式发布需解决 Python 与依赖打包；开发 Python 3.12 `.venv-p4` 已具备真实模型运行条件。
+- 桌面 `Math Grader.app` 已替换为 P4-X1 包并从该路径重新启动，原生首页显示 `P4-X1 · 本地运行`。
+- P2 保持 `READY_FOR_DEVICE_TEST`，不得凭浏览器回归升级为 PASS。
