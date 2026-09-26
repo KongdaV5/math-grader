@@ -123,7 +123,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
-  health: () => request<{ status: string; service: string; runtime_version: string; python_supported: boolean }>("/health"),
+  health: () => request<{ status: string; service: string; version: string; runtime_version: string;
+    python_version: string; architecture: string; app_version: string; git_sha: string;
+    bundled_runtime: boolean; python_supported: boolean; capabilities: Record<string, {state: string}> }>("/health"),
   overview: () => request<Overview>("/api/overview"),
   system: () => request<SystemInfo>("/api/system"),
   openDirectory: (key: string) => request<{path: string}>(`/api/system/open/${key}`, {method: "POST", body: "{}"}),
@@ -213,9 +215,17 @@ export type ModelStatus = { model: ModelEntry; state: string; path: string | nul
   progress: {completed_files: number; total_files: number | null; current_file: string | null} | null;
   error: {code: string; message: string} | null; };
 export type ProviderHealth = { model_id: string; state: string; lifecycle: string; runtime_available: boolean; error?: string };
+export type RuntimeDependency = {version: string | null; available: boolean};
+export type RuntimeCapability = {state: string; model_id?: string; runtime?: string};
+export type RuntimeDetails = {bundled: boolean; runtime_version: string; python_version: string; architecture: string;
+  executable: string; manifest_path: string | null; app_version: string; git_sha: string; build_date: string | null;
+  dependencies: Record<string, RuntimeDependency>; capabilities: Record<string, RuntimeCapability>};
 export type SystemInfo = { paths: Record<string, string>; runtime_version: string; python_supported: boolean;
-  dependencies: Record<string,boolean>;
+  python_version: string; architecture: string; runtime: RuntimeDetails;
+  dependencies: Record<string,RuntimeDependency>;
   recognition_config: {schema_version: number; routes: string[]; model_routes: Record<string, unknown>} };
+export type ServiceDiagnostics = {running: boolean; managed_by_other_instance: boolean;
+  startup_error: string | null; log_path: string};
 export type TemplateGroup = {id: string; name: string; grade: string; semester: string; book_name: string;
   publisher: string | null; version: number; created_at: string; updated_at: string};
 export type AnswerRegion = {id: string; question_id: string; region_index: number; x: number; y: number;

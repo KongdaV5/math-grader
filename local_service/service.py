@@ -21,7 +21,7 @@ from local_service.templates import TemplateService
 from local_service.image_pipeline import ImagePipeline
 from local_service.vertical_slice import VerticalSlice
 from local_service.teacher_workflow import TeacherWorkflow
-from importlib.util import find_spec
+from local_service.runtime_info import runtime_details
 from local_service.state_machine import InvalidTransition, transition
 
 
@@ -91,16 +91,20 @@ class MathGraderService:
     def health(self):
         with self.database.connection() as connection:
             connection.execute("SELECT 1").fetchone()
-        return {"status": "ok", "service": "math-grader-local", "runtime_version": sys.version.split()[0],
-                "python_supported": sys.version_info >= (3, 9)}
+        details = runtime_details(self)
+        return {"status": "ok", "service": "math-grader-local", "version": "0.1.0",
+                "runtime_version": details["runtime_version"], "python_version": details["python_version"],
+                "architecture": details["architecture"], "app_version": details["app_version"],
+                "git_sha": details["git_sha"], "bundled_runtime": details["bundled"],
+                "python_supported": sys.version_info >= (3, 12),
+                "capabilities": details["capabilities"]}
 
     def system_info(self):
-        return {"paths": self.paths.describe(), "runtime_version": sys.version.split()[0],
-                "python_supported": sys.version_info >= (3, 9),
-                "dependencies": {name: bool(find_spec(module)) for name,module in
-                                 {"Pillow":"PIL","OpenCV":"cv2","ONNX Runtime":"onnxruntime",
-                                  "Hugging Face Hub":"huggingface_hub","mlx-vlm":"mlx_vlm",
-                                  "PaddleOCR":"paddleocr","PaddlePaddle":"paddle"}.items()},
+        details = runtime_details(self)
+        return {"paths": self.paths.describe(), "runtime_version": details["runtime_version"],
+                "python_version": details["python_version"], "architecture": details["architecture"],
+                "python_supported": sys.version_info >= (3, 12), "runtime": details,
+                "dependencies": details["dependencies"],
                 "recognition_config": {"schema_version": self.gateway.config.get("schema_version", 1),
                                        "routes": list(self.gateway.config.get("recognition", {})),
                                        "model_routes": self.gateway.config.get("model_routes", {})}}

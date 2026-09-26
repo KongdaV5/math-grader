@@ -225,6 +225,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .model-card dt { color: #7d8a80; }
 .model-card dd { margin: 0; overflow-wrap: anywhere; color: #394a40; }
 .model-progress, .model-health { margin: 0; }
+.service-startup-error { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 28px 18px; }
 .model-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
 .button.destructive { border-color: #f1cfca; background: #fff7f6; color: #ae4840; }
 .button.destructive:hover { background: #fcebe8; }

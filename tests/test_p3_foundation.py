@@ -92,6 +92,7 @@ def test_model_manager_install_progress_verify_remove(tmp_path):
     manifest = manager.verify_model("tiny-ocr")
     assert manifest["resolved_revision"] == {"test/tiny": "123456789abcdef"}
     assert manifest["files"][0]["size"] == len(b"fixture-model")
+    assert manifest["local_path"] == "models/tiny-ocr"
     assert downloader.calls == 1
     assert manager.remove_model("tiny-ocr")["state"] == "NOT_INSTALLED"
     with pytest.raises(ModelNotInstalled):
@@ -160,6 +161,7 @@ def test_provider_health_missing_and_load_error(tmp_path):
     manager.install_model("tiny-ocr", background=False)
     assert registry.health("tiny-ocr")["state"] == "LOADABLE"
     assert registry.health("tiny-ocr", load=True)["state"] == "MODEL_LOAD_FAILED"
+    assert registry.health("tiny-ocr")["state"] == "MODEL_LOAD_FAILED"
 
 
 def test_model_route_validation_and_missing_model_result(tmp_path):

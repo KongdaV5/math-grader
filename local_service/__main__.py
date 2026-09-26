@@ -9,6 +9,7 @@ from local_service.http_server import create_server
 from local_service.service import MathGraderService
 from local_service.worker import JobWorker
 from local_service.runtime_paths import RuntimePaths, default_root
+from local_service.runtime_info import RuntimeManifestError, load_runtime_manifest
 
 
 def default_data_dir():
@@ -35,6 +36,13 @@ def main():
 
     if sys.version_info[:2] < (3, 9):
         parser.error("Math Grader requires Python 3.9 or newer")
+    if os.environ.get("MATH_GRADER_RUNTIME_MANIFEST"):
+        try:
+            manifest = load_runtime_manifest()
+        except RuntimeManifestError as error:
+            parser.error(str(error))
+        if manifest is None or sys.version.split()[0] != manifest["python_version"]:
+            parser.error("Bundled Python does not match the runtime manifest")
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     data_dir = args.data_dir.expanduser().resolve()

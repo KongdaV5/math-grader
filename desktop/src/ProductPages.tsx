@@ -258,10 +258,16 @@ export function SettingsPage() {
   useEffect(() => {void api.system().then(setInfo).catch((e: Error) => setError(e.message));}, []);
   const pathLabels: Record<string, string> = {root:"Application Support",data:"数据",originals:"原图",processed:"处理图",crops:"答案裁图",models:"模型",cache:"缓存",logs:"日志",config:"配置"};
   return <div className="page-stack">{error && <Message text={error} error />}{!info && !error && <Message text="正在读取运行环境…" />}
-    {info && <><section className="product-card"><h2>运行环境</h2><p>Python {info.runtime_version} · {info.python_supported ? "满足 3.9+ 要求" : "版本低于 3.9"}</p>
+    {info && <><section className="product-card"><h2>关于 Math Grader</h2>
+      <p>{info.runtime.bundled ? "正式应用构建" : "开发构建"} · App {info.runtime.app_version} · Runtime {info.runtime.runtime_version}</p>
+      <p className="details-line">Python {info.python_version} · {info.architecture} · Git {info.runtime.git_sha}</p>
+      <p className="details-line path-value">运行时：{info.runtime.executable}</p>
+      <p className="details-line">使用 Math Grader 不需要另行安装 Python。模型通过“模型中心”管理。</p></section>
+      <section className="product-card"><h2>运行环境</h2><p>Bundled runtime：{info.runtime.bundled ? "正常" : "开发环境"} · Python {info.python_version}</p>
       <p className="details-line">识别配置版本 {info.recognition_config.schema_version} · 当前路由 {info.recognition_config.routes.join("、") || "无"}</p>
       <p className="details-line">模型候选路由：{Object.keys(info.recognition_config.model_routes).length ? "已配置" : "识别实验室使用候选路由"}</p>
-      <ul className="simple-list">{Object.entries(info.dependencies).map(([name,ready])=><li key={name}><strong>{name}</strong><span>{ready ? "可用" : "缺失"}</span></li>)}</ul></section>
+      <ul className="simple-list">{Object.entries(info.dependencies).map(([name,item])=><li key={name}><strong>{name}</strong><span>{item.available ? `${item.version} · 可用` : "未安装或不可用"}</span></li>)}</ul>
+      <ul className="simple-list">{Object.entries(info.runtime.capabilities).map(([name,item])=><li key={name}><strong>{({image_processing:"图像处理",ocr:"文字识别",formula:"公式识别",vision:"视觉分析"} as Record<string,string>)[name] ?? name}</strong><span>{item.state}{item.model_id ? ` · ${item.model_id}` : ""}</span></li>)}</ul></section>
       <section className="product-card"><h2>高级工具</h2><p>检查模板裁图、模型输出及运行历史。</p><a className="button secondary" href="#/lab">打开识别实验室</a></section>
       <section className="product-card"><h2>本地目录</h2><ul className="simple-list">{Object.entries(pathLabels).map(([key, label]) =>
         <li key={key}><div><strong>{label}</strong><small className="path-value">{info.paths[key]}</small></div>

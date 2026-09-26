@@ -29,6 +29,7 @@ class BaseModelProvider:
         self.lifecycle = "UNLOADED"
         self._lock = threading.RLock()
         self._runtime = None
+        self._load_error = None
 
     def health(self, load=False):
         status = self.manager.get_model_status(self.model_id)["state"]
@@ -39,6 +40,10 @@ class BaseModelProvider:
         if not available:
             return {"model_id": self.model_id, "state": "PROVIDER_UNAVAILABLE",
                     "lifecycle": self.lifecycle, "runtime_available": False}
+        if self.lifecycle == "ERROR":
+            return {"model_id": self.model_id, "state": "MODEL_LOAD_FAILED",
+                    "lifecycle": self.lifecycle, "runtime_available": True,
+                    "error": self._load_error}
         if load:
             try:
                 self.load()
@@ -62,17 +67,20 @@ class BaseModelProvider:
             if not find_spec(self.dependency):
                 raise ProviderUnavailable(self.dependency + " is not installed")
             self.lifecycle = "LOADING"
+            self._load_error = None
             try:
                 self._runtime = self._load(path)
                 self.lifecycle = "READY"
             except Exception as error:
                 self.lifecycle = "ERROR"
+                self._load_error = "{}: {}".format(type(error).__name__, error)
                 raise ModelLoadFailed("{}: {}".format(self.model_id, error)) from error
 
     def unload(self):
         with self._lock:
             self._runtime = None
             self.lifecycle = "UNLOADED"
+            self._load_error = None
 
     def can_remove(self):
         return self.lifecycle == "UNLOADED"

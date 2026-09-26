@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { RecognitionLabPage } from "./RecognitionLabPage";
 import { GradingPage } from "./GradingPage";
-import { api } from "./api";
+import { api, type ServiceDiagnostics } from "./api";
 import { AnalyticsPage, AssignmentsPage, DashboardPage, ModelCenterPage, ReviewPage,
   SettingsPage, StudentsPage, TemplatesPage } from "./ProductPages";
 
@@ -27,10 +28,14 @@ function currentPage(): PageId {
 function App() {
   const [page, setPage] = useState<PageId>(currentPage);
   const [online, setOnline] = useState(false);
+  const [serviceDiagnostics, setServiceDiagnostics] = useState<ServiceDiagnostics | null>(null);
   useEffect(() => {
     const onHash = () => setPage(currentPage());
     window.addEventListener("hashchange", onHash);
-    const poll = () => { void api.health().then((response) => setOnline(response.status === "ok")).catch(() => setOnline(false)); };
+    const poll = () => {
+      void api.health().then((response) => setOnline(response.status === "ok")).catch(() => setOnline(false));
+      void invoke<ServiceDiagnostics>("service_diagnostics").then(setServiceDiagnostics).catch(() => {});
+    };
     poll();
     const timer = setInterval(poll, 3000);
     return () => {window.removeEventListener("hashchange", onHash); clearInterval(timer);};
@@ -45,10 +50,18 @@ function App() {
     <aside className="app-sidebar"><a className="app-brand" href="#/home"><span className="app-brand-icon">数</span><span><strong>Math Grader</strong><small>本地作业批改</small></span></a>
       <nav aria-label="主导航">{pages.filter((item) => item.id !== "lab").map((item) => <a key={item.id} href={`#/${item.id}`} className={page === item.id ? "active" : ""} aria-current={page === item.id ? "page" : undefined}>
         <span className="nav-marker" aria-hidden="true">{item.marker}</span>{item.title}</a>)}</nav>
-      <div className="sidebar-foot"><span className={`service-dot ${online ? "online-dot" : ""}`} />{online ? "本地服务已连接" : "本地服务未连接"}<small>P5-L1 · 本地运行</small></div>
+      <div className="sidebar-foot"><span className={`service-dot ${online ? "online-dot" : ""}`} />{online ? "本地服务已连接" : "本地服务未连接"}<small>本地作业工作区</small></div>
     </aside>
     <div className="app-main"><header className="page-header"><div><p className="eyebrow">MATH GRADER / {selected.id.toUpperCase()}</p><h1>{selected.title}</h1><p>{selected.description}</p></div>
       <span className={`service-pill ${online ? "online" : "offline"}`}><span className="service-dot" />{online ? "本地服务正常" : "服务未连接"}</span></header>
+      {!online && serviceDiagnostics?.startup_error && <div className="product-message is-error service-startup-error" role="alert">
+        <span>本地服务启动失败：{serviceDiagnostics.startup_error}</span>
+        <button className="button secondary" onClick={() => void invoke("open_service_logs")}>查看日志</button>
+      </div>}
+      {!online && !serviceDiagnostics?.startup_error && <div className="product-message service-startup-error" role="status">
+        <span>{serviceDiagnostics?.managed_by_other_instance ? "另一个 Math Grader 窗口正在管理本地服务。" : "本地服务正在启动或暂时不可用。"}</span>
+        {serviceDiagnostics && <button className="button secondary" onClick={() => void invoke("open_service_logs")}>查看日志</button>}
+      </div>}
       <main className="app-content" id="main-content">{body}</main>
     </div>
   </div>;

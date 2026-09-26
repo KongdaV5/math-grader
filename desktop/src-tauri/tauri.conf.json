@@ -36,8 +36,16 @@
     "icon": ["icons/icon.png", "icons/icon.icns"],
     "category": "Education",
     "shortDescription": "本地作业采集与批改",
+    "macOS": {
+      "minimumSystemVersion": "15.0",
+      "hardenedRuntime": false
+    },
     "resources": {
-      "../../local_service/": "local_service/"
+      "../../local_service/*.py": "local_service/",
+      "../../local_service/config/": "local_service/config/",
+      "../../local_service/migrations/": "local_service/migrations/",
+      "../../local_service/capture_page.html": "local_service/capture_page.html",
+      "target/math-grader-runtime/": "runtime/"
     }
   }
 }

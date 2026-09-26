@@ -167,7 +167,8 @@ class ModelManager:
                 "model_id": model_id, "catalog_schema_version": self.catalog.schema_version,
                 "source_repo": model["source_repo"], "requested_revision": model["requested_revision"],
                 "resolved_revision": revisions, "installed_at": datetime.now(timezone.utc).isoformat(),
-                "local_path": str(destination), "files": records, "expected_size": estimate,
+                # Keep the installation manifest portable when Application Support moves.
+                "local_path": "models/" + model_id, "files": records, "expected_size": estimate,
                 "actual_size": sum(item["size"] for item in records), "state": "INSTALLED",
                 "runtime": model["runtime"], "provider_type": model["provider_type"],
             }
@@ -197,10 +198,19 @@ class ModelManager:
                 raise ValueError("Manifest source or provider mismatch")
             if (data["requested_revision"] != model["requested_revision"] or
                 data["runtime"] != model["runtime"] or data["state"] != "INSTALLED" or
-                data["local_path"] != str(self._directory(model["id"])) or
                 data["expected_size"] != model["approximate_size_bytes"] or
                 not data["installed_at"]):
                 raise ValueError("Manifest install metadata mismatch")
+            recorded_path = data["local_path"]
+            expected_relative_path = "models/" + model["id"]
+            if recorded_path != expected_relative_path:
+                # Existing P3/P4 installs used an absolute path. Accept only the
+                # legacy models/<model-id> shape; the current managed path is
+                # derived from this RuntimePaths root, never from this string.
+                legacy_path = Path(recorded_path)
+                if not (legacy_path.is_absolute() and legacy_path.name == model["id"] and
+                        legacy_path.parent.name == "models"):
+                    raise ValueError("Manifest installation path is not portable")
             if set(data["resolved_revision"]) != set(model["source_repo"]):
                 raise ValueError("Missing resolved revision")
             files = {record["path"]: record for record in data["files"]}

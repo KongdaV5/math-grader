@@ -23,11 +23,19 @@ class RuntimePaths:
         self.originals = self.root / "images" / "originals"
         self.processed = self.root / "images" / "processed"
         self.crops = self.root / "images" / "crops"
-        self.models = self.root / "models"
+        configured_models = os.environ.get("MATH_GRADER_MODELS_DIR")
+        if configured_models:
+            configured_path = Path(configured_models).expanduser()
+            if not configured_path.is_absolute():
+                raise ValueError("MATH_GRADER_MODELS_DIR must be an absolute path")
+            self.models = configured_path.resolve()
+        else:
+            self.models = self.root / "models"
         # A P1/P2 database may still live under Tauri's old bundle-id directory.
         # Keep that database and its images in place while using the P3+ shared
         # model store, unless the legacy directory already contains model installs.
-        if platform.system() == "Darwin" and self.root == Path.home() / "Library/Application Support/local.math-grader.desktop":
+        if (not configured_models and platform.system() == "Darwin" and
+                self.root == Path.home() / "Library/Application Support/local.math-grader.desktop"):
             legacy_models = self.root / "models"
             if not any(legacy_models.glob("*/install-manifest.json")):
                 self.models = Path.home() / "Library/Application Support/MathGrader/models"
