@@ -154,6 +154,7 @@
 - 4B MLX 本地权重在同一 `120` crop 经完整 E2E 输出 `120`，SUCCESS，UI 显示 revision 与 2532 ms。独立五例 smoke：单数字 `7`、多位整数 `3456`、选项 `B`、符号 `>`、轻微改动 `12`；加载约 1758 ms，单例暖次 718–1060 ms，进程峰值 RSS 3,480,600,576 bytes。无 8B 测试。
 - ImagePipeline 合成单页手动计时 591.3 ms（这张白底样例提示 `OVEREXPOSED`）；手机上传不等待处理完毕。
 - 无 Desktop CLI 隔离 smoke：经 ModelManager 在 `/tmp` 安装 Small 后，`python -m local_service.recognition_cli --json` 对四区域合成页返回 exit 0、四个 SUCCESS 与 `120` / `3456` / `A` / `<`。
+- 从真实 Small/Medium/4B RecognitionRun 导出 6 条 P0 prediction，逐条通过 `prediction.schema.json` 校验，且 `decision_status` 全部保持 `REVIEW_REQUIRED`。
 
 ## 浏览器与 P2 回归
 
