@@ -2,15 +2,16 @@
 
 ## 当前状态
 
-- 阶段：**P2 — Capture Bridge**
-- 当前工作包：**P2 Capture Bridge**
-- 状态：**READY_FOR_DEVICE_TEST**（实现、自动验证和桌面浏览器 UI E2E 完成；待真实 iPhone Safari 验收）
-- Branch：`phase/p2`
-- Start SHA：`83305d6f94d144ff2261340ad91f9b565ab071ad`
-- Implementation End SHA：`37887fd3df772a0440580ca384843388a2de9e71`
+- 阶段：**P3-X1 — Product Framework & Model Runtime Foundation**
+- 当前工作包：**P3-X1**
+- 状态：**PASS WITH BLOCKERS**（产品与安装闭环通过；真实 OCR 后处理、Formula 本地推理及正式 Python 运行时打包仍待后续，详见 P3-X1 handoff）
+- Branch：`phase/p3-x1`
+- Start SHA：`cc871a733fb942e42d3e156282596f31212312d0`
 - P0-W1 Benchmark Foundation：**PASS，未重做**
-- P1-W1 Application Foundation：**PASS，40 项回归保持通过**
-- 下一 Gate：用户按交接步骤完成真实 iPhone Safari 验收；设备通过后才可将 P2 标记 PASS。
+- P1-W1 Application Foundation：**PASS**
+- P2 Capture Bridge：**READY_FOR_DEVICE_TEST**；真实 iPhone Safari 尚未验收，不能标记 PASS。本轮按新授权启动 P3-X1，未合并 P2 到 main。
+- Implementation End SHA：`06cd1e3035e2b870ea208efd080f68810e6929b6`
+- 下一 Gate：P2 真实 iPhone Safari 设备验收独立保留；P3-X1 后续进入图像/模板深化与识别集成。
 
 ## P1-W1 基线
 
@@ -50,9 +51,18 @@
 - 完整 P1 浏览器 Mock E2E 作为历史验收证据保留。P2 桌面浏览器 Capture UI 流程已覆盖；真实 iPhone Safari 尚未测试。
 - 当前 Tauri app 从系统 `PATH` 启动 Python 3.9+；发布环境需安装 Python。服务代码与配置已随 `.app` resources 打包。
 - P2 未测试真实 iPhone Safari；在真实设备 Gate 通过前，不得声称 P2 PASS。
-- 本轮不提供真实 OCR、数学判分、图像质量 AI 或模型 Benchmark。
+- P2 历史交付不含真实 OCR、数学判分或模型 Benchmark；P3-X1 的真实模型边界见下节。
+
+## P3-X1 交付结果
+
+- 九页 Desktop Shell 已在浏览器、Tauri dev 与打包 `.app` 原生窗口中运行；原 P2 Capture Bridge 保持独立 listener 与原路由。
+- macOS 新运行数据使用 `~/Library/Application Support/MathGrader/`；旧数据原位回退，不自动搬迁。模板新增 SQLite migration `003_templates.sql`。
+- 五项数据驱动候选模型已进入 Model Catalog；Small 官方 ONNX 双模型完成真实下载、验证、加载、删除，未下载 4B/8B。
+- 图像处理对合成样例和 PaddleOCR 官方示例图输出 processed 副本；模板的组、页面、题目、归一化答案区域已通过服务与 UI 基础操作。
+- Python 全套 **73 passed**（P0/P1/P2 原 51 项 + P3-X1 新 22 项）；TypeScript、Vite、cargo check、Tauri dev/build/app startup 与浏览器回归均通过。
+- 真实 PP-OCR 检测后处理/识别拼接未接入；Formula 仍是安装/依赖/错误边界；MLX 未下载大权重且未实测推理。当前 Submission 默认仍走 Mock，不能声称真实识别准确率。
 
 ## 下一步
 
 1. 由用户按 handoff 步骤用真实 iPhone Safari 验收；用户确认通过后再标记 P2 PASS。
-2. P2 PASS 前不要启动 P3。
+2. 图像/模板深化 → Recognition Integration → 真实 Model Benchmark；不提前选择最终模型或开始判分。

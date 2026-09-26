@@ -21,3 +21,8 @@
 - **D-017 Capture Bridge 网络边界**：Desktop API 仅绑定 loopback；明确开启 Capture Session 后，另一个监听器才绑定用户选择的 RFC1918 LAN 地址，且只提供 Capture 页面与最小 Capture API。会话 token 使用 256-bit 随机值，数据库只存 SHA-256，Session 结束、过期或服务重启后失效。
 - **D-018 每页即时保存与重复保护**：手机确认保留后立即以图片 body 上传；服务校验 MIME 与文件签名、10 MB 上限、当前 Submission ID 和 UUID Idempotency-Key，再使用内部 page UUID 落盘并保存文件名、MIME、字节数、上传时间与 SHA-256。客户端文件名不用于磁盘路径。
 - **D-019 明确 finish 与队列并行**：只有确认“完成该生”才把当前 Submission 原子地变为 READY / QUEUED、创建一个 Queue Job 并选择下一位 active student；重复 finish 幂等。前一位后台处理时，手机可继续采集下一位；最后一位完成后 Session 不回到名单开头。
+- **D-020 P3-X1 可与 P2 设备 Gate 并行**：P2 保持 `READY_FOR_DEVICE_TEST`；从指定 `phase/p2` HEAD 创建 `phase/p3-x1`，不合并 main。真实 iPhone 验收和修复后续独立回合处理。
+- **D-021 统一运行数据目录**：正式 macOS 新安装使用 `~/Library/Application Support/MathGrader/`，统一由 `RuntimePaths` 提供 data/images/models/cache/logs/config；旧 P1/P2 数据原位读取，不做自动搬迁。
+- **D-022 模型候选与安装分离**：版本化 Catalog 只记录候选来源；模型文件仅在用户显式安装时进入 Application Support 的 `models/`，先 staging、验证后原子落盘。Qwen 原始模型与 MLX Community 转换版分别标注，最终默认模型由后续真实 Benchmark 决定。
+- **D-023 Provider 边界**：Submission 继续依赖 Recognition Gateway；模型 Provider 按 Catalog ID 延迟发现与加载。P3-X1 不把未实现的 OCR 后处理或公式推理说成真实识别能力。
+- **D-024 图像与模板渐进接入**：原图保留，ImagePipeline 手动生成 processed 副本，不自动加到 P2 上传路径；TemplateGroup/PageTemplate/Question/AnswerRegion 使用独立 migration 和归一化 0..1 坐标。

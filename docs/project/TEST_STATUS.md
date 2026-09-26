@@ -89,3 +89,45 @@
 ## Release 风险
 
 - 保留 P1 已知正式发布阻塞：打包 `.app` 通过系统 `python3` 启动服务，目标 Mac 需要 PATH 中有 Python 3.9+；P2 未改运行时打包架构。
+
+---
+
+# P3-X1 Product Framework & Model Runtime Foundation 测试状态
+
+## 基线与版本
+
+- Start branch：`phase/p2`，Start SHA：`cc871a733fb942e42d3e156282596f31212312d0`；Implementation branch：`phase/p3-x1`。
+- Implementation End SHA：`06cd1e3035e2b870ea208efd080f68810e6929b6`。
+- 开始修改前 Python 全套：**51 passed**；最终：**73 passed**，新增 P3-X1 22 个用例，P0/P1/P2 原 51 项全通过。
+- Python 3.9.6、Node 24.21.0、Rust 1.98.1。当前 Rust 工具链从 Homebrew 安装于本机；这是开发验证环境变更，不进入项目源码。
+
+## 自动化验证
+
+- `.venv/bin/python -m pytest -q`：**73 passed**。
+- `.venv/bin/python -m compileall -q benchmark local_service tests`：**PASS**。
+- `.venv/bin/python -m local_service --help`：**PASS**。
+- `npm run typecheck`、`npm run build`：**PASS**。
+- `cargo check -q`、`npm run desktop:dev`：**PASS**；Tauri dev 启动后 `/health` 返回 `ok` 与 Python 3.9.6。
+- `npm run desktop:build`：**PASS**；macOS `.app` 内包含新增模型清单、模板 migration 与页面资源。
+- 打包 `.app` 直接启动：**PASS**；`/health`、标准路径选择、原生窗口的首页、模型中心、模板、设置页面均实际检查。
+- `git diff --check`：**PASS**。
+
+## P3-X1 新测试覆盖
+
+- Catalog schema、重复 ID、未知 Provider、非法路径；ModelManager 未安装/真实文件计数进度/取消/失败/重试/原子安装/磁盘不足/路径约束/验证/删除。
+- Provider Registry、未安装错误、健康检查与模型加载错误；Recognition model route 不存在与能力不兼容。
+- Template migration 从 P2 数据升级且保留原班级、TemplateGroup/PageTemplate/Question/AnswerRegion CRUD、0..1 坐标校验。
+- ImagePipeline 合成正常/旋转/透视/模糊/过暗/过曝/无页面图片以及 EXIF 方向；原图字节不变。
+- 自动测试只使用 tiny fake downloader，不下载大型模型。
+
+## 真实下载与 UI smoke
+
+- 从 PaddlePaddle 官方 Hugging Face Small det/rec 仓库真实获取 6 个指定文件，总计 **31,628,665 bytes**；解析并记录两个 repo 的 commit SHA，安装清单验证通过，ONNX Runtime 两个 session 均加载成功，之后卸载并删除。GUI 模型中心实际显示 `NOT_INSTALLED → DOWNLOADING → INSTALLED → NOT_INSTALLED`，健康检查识别安装状态。未下载 Formula、4B、8B。
+- PaddleOCR 官方 `general_ocr_002.png` 示例图真实读取并经 ImagePipeline 输出；对该图片调用已加载的 PPOCRONNXProvider 明确返回 `PROVIDER_UNAVAILABLE`，因为检测/识别后处理未集成。此处没有 OCR 文本推理成功证据。
+- 浏览器九页导航、首页真实统计、模型中心、模板组/参考页创建及合成参考图导入、Question/AnswerRegion 展示、设置页运行路径均实际检查。
+- P2 Browser E2E 回归：合成班级两名学生、QR/独立 Capture 页、预览重拍不增加页数、三页即时上传、删除中间页后余下页码整理、刷新恢复、补拍、确认 finish、自动下一学生、第二名页面归属、后台 2 个 Job 完成和全班完成。临时 Session 已结束，测试数据库/图片/模型均已清理；真实 iPhone Safari 仍未测试。
+
+## 边界
+
+- PP-OCR ONNX 模型可真实加载，但尚无检测后处理与识别拼接；Formula 只具备检测/依赖/错误接口；MLX VLM 用本地安装路径的适配器尚无权重实测。Submission 默认仍经 Mock Provider。
+- `.app` 继续由系统 Python 3.9+ 启动；正式发布仍需解决 Python 及 Python 依赖随包交付。

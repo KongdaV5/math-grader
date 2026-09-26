@@ -1,7 +1,7 @@
 # 本地小学数学作业拍照批改系统
 ## 项目参考手册 / Architecture & Execution Playbook
 
-**版本：v0.4**
+**版本：v0.5**
 **日期：2026-09-25**
 **状态：当前项目主参考文档**  
 **适用对象：项目本人、Codex、Workbuddy、其他开发模型、后续维护者**
@@ -1135,8 +1135,8 @@ Mac 落盘
 
 ## 21.6 P2 当前交付 Gate
 
-- 自动化实现测试、TypeScript/Rust 检查与 Tauri build 已通过；Capture 浏览器已实测 QR、三张图片逐张上传、拍页不换学生与刷新恢复。
-- 当前交付状态为 **PARTIAL**：Capture browser 的删除/重排、finish 后切换、后台 queue 可视步骤未完成 UI 实测（Mac 锁屏后无法继续派发 UI 交互）。完成这些并全通过后改为 `READY_FOR_DEVICE_TEST`。
+- 自动化实现测试、TypeScript/Rust 检查与 Tauri build 已通过；桌面浏览器已实测 QR、预览重拍、三张图片逐张上传、删除后页码整理、刷新恢复、finish 换学生与后台队列。
+- 当前交付状态为 **READY_FOR_DEVICE_TEST**。P3-X1 按新的项目授权先行，不改变 P2 真实设备 Gate。
 - 真实 iPhone Safari 未测试。真实设备步骤见最新 handoff；未获得真实设备证据时禁止把 P2 标成 PASS。
 
 ---
@@ -2170,34 +2170,34 @@ STOP
 ```text
 P0-W1 Benchmark Foundation 已 PASS（评测代码永久保留）
 ↓
-P1 Application Foundation
+P1 Application Foundation 已 PASS
 ↓
-P2 Capture Bridge
+P2 Capture Bridge READY_FOR_DEVICE_TEST（真实 iPhone Gate 独立保留）
 ↓
-P3 Image Pipeline
+P3-X1 Product Framework & Model Runtime Foundation（当前工作包）
 ↓
-P4 Template System
+图像 / 模板深化
 ↓
-P5 Recognition Integration
+Recognition Integration
 ↓
-P6 Model Benchmark（使用真实应用管线评估候选模型）
+真实 Model Benchmark（使用真实应用管线评估候选模型）
 ↓
-P7 Normalize
+Normalize
 ↓
-P8 Grader
+Deterministic Grader
 ↓
-P9 Confidence / Review
+Confidence / Human Review
 ↓
-P10 Student History
+Student History
 ↓
-P11 Analytics
+Analytics
 ↓
-P12 Desktop UI 完善与产品化
+Final Packaging
 ↓
 后续可选：Continuity Camera 专业模式
 ```
 
-P0-W2 不再是 P1 的前置工作；模型 Benchmark 的阶段编号和实施时机改为 P6。P1 的 Mock Provider 只验证应用边界与端到端流程，不构成模型质量证据。
+P0-W2 不再是 P1 的前置工作；真实模型 Benchmark 保留在识别集成之后。P1 的 Mock Provider 只验证应用边界与端到端流程，不构成模型质量证据。
 
 ---
 
@@ -2291,32 +2291,32 @@ V1 必须同时满足：
 9. 模板失败仍继续自动批改；
 10. 人工修正不留记录；
 11. 模型升级不做 Regression；
-12. 在识别管线形成前开发完整批改/分析 UI（P1 最小应用闭环除外）；
+12. 在识别管线形成前伪造完整批改/分析能力；P3-X1 的正式页面 Shell 与明确空状态不构成真实算法能力；
 13. 把保存字迹样本称为“自动训练完成”。
 
 ---
 
 # 49. 当前下一步
 
-P0-W1 Benchmark Foundation 与 P1 Application Foundation 已 PASS。当前工作包为 P2 Capture Bridge，交付状态为 PARTIAL；先完成浏览器 UI 验收及 iPhone 设备 Gate，再决定是否启动 P3。
+P0-W1 Benchmark Foundation 与 P1 Application Foundation 已 PASS。P2 Capture Bridge 为 READY_FOR_DEVICE_TEST，真实 iPhone Safari 尚未验收。当前按新授权执行 P3-X1；P2 的设备 Gate 独立保留。
 
 ```text
 P0-W1 Benchmark Foundation 已 PASS
 ↓
 P1 Application Foundation
 ↓
-P2 Capture Bridge
+P2 Capture Bridge READY_FOR_DEVICE_TEST
 ↓
-P3 Image Pipeline
+P3-X1 Product Framework & Model Runtime Foundation
 ↓
-P4 Template System
+图像 / 模板深化
 ↓
-P5 Recognition Integration
+Recognition Integration
 ↓
-P6 Model Benchmark
+真实 Model Benchmark
 ```
 
-模型 Benchmark 仍然保留，只是等本地采集、图像与识别接口形成后，再用真实应用管线评估模型。P2 不接真实 OCR/VLM，不开始 P3。
+模型 Benchmark 仍然保留，待本地采集、图像与识别接口形成后再用真实应用管线评估。P2 历史交付不包含真实 OCR/VLM；P3-X1 只搭模型运行基础，不提供准确率结论。
 - 完整客户端。
 
 ---
@@ -2426,4 +2426,17 @@ Auto Precision ≥ 99.5%
 
 ---
 
-> **当前版本 v0.4 取代 v0.3，作为后续开发的唯一主参考基线。**
+> v0.4 曾取代 v0.3；当前基线见下方 v0.5。
+
+## v0.5 变更摘要
+
+相对 v0.4：
+
+1. P2 更新为 `READY_FOR_DEVICE_TEST`，真实 iPhone Safari 验收仍是独立 Gate；
+2. 新授权允许从 P2 HEAD 开展 P3-X1 产品框架与模型运行基础，保持 P2 状态不变；
+3. 正式 Desktop 建立九页导航，候选模型清单与安装生命周期分离；
+4. macOS 新运行数据统一在 `Application Support/MathGrader`，旧数据使用原位兼容；
+5. 增加模板迁移与归一化答案区域，图像预处理采用保留原图的独立手动入口；
+6. 模型 Provider 延迟加载，尚未实现的真实识别路径必须明确标为未集成。
+
+> **当前版本 v0.5 取代 v0.4，作为后续开发的唯一主参考基线。**

@@ -27,13 +27,18 @@
 - 自动测试：51 passed（P1 40 项回归 + P2 11 项）；完整验证矩阵见 `TEST_STATUS.md`。
 - Browser E2E：已验证创建临时班级/学生/作业和二维码；预览重拍不增加页数；三页即时上传、删除中间页后页码整理、刷新恢复；确认 finish 后自动换学生；第二位学生页面归属正确；Mac 显示上一位学生 `排队中`；末位完成后手机页显示全班完成，Mac 显示 2/2 和两位学生队列。
 - Gate：**READY_FOR_DEVICE_TEST**。由用户使用真实 iPhone Safari 完成同 Wi-Fi、扫码、拍摄/删除/重拍、学生推进及 Mac 归属/队列验收后，才可将 P2 标记 PASS。
-- Do not：不开发 OCR/VLM、图像处理、模板、判分、Continuity Camera、iOS 原生 App，也不开始 P3。
+- P2 真实 iPhone Safari Gate 独立保留；新授权允许 P3-X1 先行开发。不要把 P2 标记 PASS。
 
-## LATER — P3 至 P6
+## DONE WITH BLOCKERS — P3-X1 Product Framework & Model Runtime Foundation
 
-1. P3 Image Pipeline；
-2. P4 Template System；
-3. P5 Recognition Integration；
-4. P6 Model Benchmark（P0 Benchmark 子系统永久保留，P0-W2 不再是 P1 前置）。
+- Branch：`phase/p3-x1`，从 `phase/p2` 的 `cc871a733fb942e42d3e156282596f31212312d0` 创建；不合并到 main。
+- 状态：**PASS WITH BLOCKERS**；正式 Desktop Shell、模型中心/管理器、Provider 运行层、ImagePipeline、Template Domain 的联合工作包已落地。
+- 验收：Small 官方 ONNX 文件组真实安装/验证/ONNX 加载/删除；73 项 Python 测试；浏览器九页、模板/模型中心和 P2 Capture 回归；Tauri dev/build/原生 app 启动。
+- Blockers：OCR 真正的检测+识别后处理、Formula 本地推理、MLX 大模型运行未完成；正式 `.app` 仍依赖系统 Python 3.9+ 及另行安装 Python 依赖。
+- 不做真实模型准确率 Benchmark、最终判分、完整人工复核或云服务。
 
-其后：Normalize → Grader → Confidence / Review → Student History → Analytics → Desktop UI 完善。
+## LATER — P3-X1 之后
+
+图像/模板深化 → Recognition Integration → 真实 Model Benchmark → Normalize → Deterministic Grader → Confidence / Human Review → Student History → Analytics → Final Packaging。
+
+P0 Benchmark 子系统永久保留；P0-W2 不再是 P1 前置。
