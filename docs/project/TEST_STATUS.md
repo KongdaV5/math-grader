@@ -81,10 +81,10 @@
 
 ## Browser E2E 与验收边界
 
-- 已完成浏览器实际操作：Desktop UI 建立测试班级、学生、作业并开启 Session；显示的 LAN 地址为 `192.168.31.89:8766`，QR 只含 token URL；手机等价页面可打开；3 张测试 PNG 在各次确认后立即上传；拍照期间没有自动换学生；刷新后 Session、当前学生和页数成功恢复。
-- 未完成浏览器 UI 步骤：更新为页面内无障碍确认框后，删除/重排、确认 finish、切换下一学生、完成 Mock queue 尚未在浏览器 UI 验证。Mac 屏幕锁定后自动化点击不再向页面派发事件；这部分不能记为 PASS。
-- 真实 iPhone Safari：**未测试**；照片测试使用无真实学生内容的本地 1×1 PNG fixture，fixture 保存在 `/tmp`，未提交 Git。
-- 因浏览器 UI E2E 尚未完成，当前状态为 **PARTIAL**；完整浏览器 E2E 通过后方可转 `READY_FOR_DEVICE_TEST`，真实 iPhone 通过后方可将 P2 标记 PASS。
+- 已完成浏览器实际操作：Desktop UI 建立临时班级、两名学生和作业并开启 Session；二维码不含 roster 信息；手机等价页面预览重拍后不增加页数；逐页上传 3 张本地 PNG；取消删除确认保留页面；删除中间页后余下页重新编号，再补传并刷新恢复三页。
+- Finish E2E：确认完成首位学生后，手机页自动切换到第二位；第二位上传一页后，Mac 显示当前归属为第二位且首位处于 `排队中`。为验证可见队列，使用无 worker 的临时测试服务；最后一位完成后，手机页显示“本班拍摄完成”，Mac 显示 2/2 和两位学生均 `排队中`。
+- 已在 Desktop UI 结束 Session；临时 Capture listener 已关闭。真实 iPhone Safari：**未测试**；测试图片是无真实学生内容的本地 1×1 PNG fixture，保存在 `/tmp`，未提交 Git。
+- 桌面浏览器 UI E2E 已通过，当前状态为 **READY_FOR_DEVICE_TEST**；真实 iPhone Safari 通过后方可将 P2 标记 PASS。
 
 ## Release 风险
 

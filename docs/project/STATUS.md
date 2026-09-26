@@ -4,13 +4,13 @@
 
 - 阶段：**P2 — Capture Bridge**
 - 当前工作包：**P2 Capture Bridge**
-- 状态：**PARTIAL**（实现和自动验证完成；浏览器 UI E2E 尚未完整验证）
+- 状态：**READY_FOR_DEVICE_TEST**（实现、自动验证和桌面浏览器 UI E2E 完成；待真实 iPhone Safari 验收）
 - Branch：`phase/p2`
 - Start SHA：`83305d6f94d144ff2261340ad91f9b565ab071ad`
 - Implementation End SHA：`37887fd3df772a0440580ca384843388a2de9e71`
 - P0-W1 Benchmark Foundation：**PASS，未重做**
 - P1-W1 Application Foundation：**PASS，40 项回归保持通过**
-- 下一 Gate：解锁 Mac 后完成剩余桌面浏览器 E2E；全部通过后为 `READY_FOR_DEVICE_TEST`，真实 iPhone Safari 验收后才可标 P2 PASS。
+- 下一 Gate：用户按交接步骤完成真实 iPhone Safari 验收；设备通过后才可将 P2 标记 PASS。
 
 ## P1-W1 基线
 
@@ -43,17 +43,16 @@
 - 手机 Safari 页面用原生 `capture="environment"` 相机入口，预览后可重拍或立即上传；支持当前学生多页、缩略图、单页删除、编号重排、刷新恢复。
 - 只有确认“完成该生”后 Submission 才进入 READY / QUEUED 并推进 roster；后台 worker 与下一位手机采集并行；结束/过期/进程重启时旧 token 失效并关闭 LAN listener。
 - 新增 P2 自动测试 11 项；Python 全套 **51 passed**。React typecheck/build、cargo check、Tauri dev/service health、`.app` build smoke 均通过。
-- Browser E2E 已验证二维码、三张测试图片即时上传、拍页不切学生、页面刷新恢复；删除/重排、finish 后换人及浏览器可视的队列步骤因 Mac 锁屏尚未验证，因此状态保持 **PARTIAL**。
+- Browser E2E 已验证二维码、预览重拍、三页即时上传、中间页删除后的页码整理、刷新恢复、明确 finish 后换学生、下一学生页面归属、Mac 队列显示和全班完成状态。临时测试 worker 保持停止以观察 `排队中`；真实设备 Gate 仍待完成。
 
 ## 环境与已知限制
 
-- 完整 P1 浏览器 Mock E2E 作为历史验收证据保留。P2 的 Capture UI 浏览器流程尚未全覆盖；Mac 锁屏后 UI 点击停止派发，需要解锁后继续。
+- 完整 P1 浏览器 Mock E2E 作为历史验收证据保留。P2 桌面浏览器 Capture UI 流程已覆盖；真实 iPhone Safari 尚未测试。
 - 当前 Tauri app 从系统 `PATH` 启动 Python 3.9+；发布环境需安装 Python。服务代码与配置已随 `.app` resources 打包。
 - P2 未测试真实 iPhone Safari；在真实设备 Gate 通过前，不得声称 P2 PASS。
 - 本轮不提供真实 OCR、数学判分、图像质量 AI 或模型 Benchmark。
 
 ## 下一步
 
-1. 解锁 Mac，完成 Capture browser E2E 剩余的删除/重排、finish 确认、下一学生切换、后台 Mock queue 检查；通过后把状态改为 `READY_FOR_DEVICE_TEST`。
-2. 由用户按 handoff 步骤用真实 iPhone Safari 验收；用户确认通过后再标记 P2 PASS。
-3. P2 PASS 前不要启动 P3。
+1. 由用户按 handoff 步骤用真实 iPhone Safari 验收；用户确认通过后再标记 P2 PASS。
+2. P2 PASS 前不要启动 P3。

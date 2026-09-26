@@ -19,14 +19,14 @@
 ## IN PROGRESS — P2 Capture Bridge
 
 - Owner：Codex GPT-6 Luna
-- Status：**PARTIAL**；实现已提交，Python、React、Rust 与 Tauri 检查通过；完整浏览器 UI E2E 仍需在 Mac 解锁后补验。
+- Status：**READY_FOR_DEVICE_TEST**；实现、自动验证和桌面浏览器 UI E2E 均已通过。真实 iPhone Safari 尚未验收，P2 暂不能标记 PASS。
 - Branch：`phase/p2`
 - Start SHA：`83305d6f94d144ff2261340ad91f9b565ab071ad`
 - Implementation End SHA：`37887fd3df772a0440580ca384843388a2de9e71`
 - 交付：独立 Capture LAN 监听器、Session token/hash 与生命周期、手机 Safari 原生相机入口、每页即时上传、缩略图/删除/重排、明确 finish、班级顺序推进、二维码及 Mac 后台队列状态。
 - 自动测试：51 passed（P1 40 项回归 + P2 11 项）；完整验证矩阵见 `TEST_STATUS.md`。
-- Browser E2E：已验证 Mac UI 建立样例班级/作业、生成真实二维码、手机等价页面即时上传 3 张测试图片、拍页不切换学生、刷新恢复。锁屏前未验证删除确认、finish 换学生和后台队列 UI；不得将其标为通过。
-- Gate：Mac 解锁后完成剩余桌面浏览器 E2E，全部通过后转 `READY_FOR_DEVICE_TEST`；真实 iPhone Safari 验收完成前 P2 不得标记 PASS。
+- Browser E2E：已验证创建临时班级/学生/作业和二维码；预览重拍不增加页数；三页即时上传、删除中间页后页码整理、刷新恢复；确认 finish 后自动换学生；第二位学生页面归属正确；Mac 显示上一位学生 `排队中`；末位完成后手机页显示全班完成，Mac 显示 2/2 和两位学生队列。
+- Gate：**READY_FOR_DEVICE_TEST**。由用户使用真实 iPhone Safari 完成同 Wi-Fi、扫码、拍摄/删除/重拍、学生推进及 Mac 归属/队列验收后，才可将 P2 标记 PASS。
 - Do not：不开发 OCR/VLM、图像处理、模板、判分、Continuity Camera、iOS 原生 App，也不开始 P3。
 
 ## LATER — P3 至 P6
