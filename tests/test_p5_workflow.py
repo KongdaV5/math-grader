@@ -47,12 +47,12 @@ class WorkflowProvider:
                 "confidence": 0.92, "analysis_note": "Synthetic fixture proposal",
             }]}
             text = json.dumps(payload)
-            return RecognitionResult(text=text, confidence=0.92, provider="mlx_vlm",
-                                     model=self.model_id, latency_ms=2,
+            return RecognitionResult(text=text, confidence=0.92, provider="native_gate_fixture",
+                                     model="native-gate-fixture-provider", latency_ms=2,
                                      metadata={"fixture_provider": True})
         confidence = 0.35 if request.context.get("submission_id") in self.uncertain_submissions and request.context.get("question_no") == "2" else 0.99
-        return RecognitionResult(text="12", confidence=confidence, provider="ppocr_onnx",
-                                 model=self.model_id, latency_ms=1,
+        return RecognitionResult(text="12", confidence=confidence, provider="native_gate_fixture",
+                                 model="native-gate-fixture-provider", latency_ms=1,
                                  metadata={"fixture_provider": True})
 
 
@@ -97,6 +97,9 @@ def test_student_a_four_pages_and_student_b_reuses_confirmed_exam_template(tmp_p
     draft = service.teacher_workflow.analyze_exam(assignment["id"], student_a["id"])
     assert analysis_calls == [1, 2, 3, 4]
     assert draft["status"] == "DRAFT"
+    assert draft["analysis_metadata"]["provider"] == "native_gate_fixture"
+    assert draft["analysis_metadata"]["model"] == "native-gate-fixture-provider"
+    assert draft["analysis_metadata"]["model"] != "qwen3-vl-4b-mlx-4bit"
     assert len(draft["draft"]["pages"]) == 4
     assert all(page["questions"][0]["answer_region"] for page in draft["draft"]["pages"])
     confirmed = service.teacher_workflow.confirm_exam(assignment["id"])
@@ -172,7 +175,10 @@ def test_existing_workbook_can_be_selected_and_used_in_teacher_flow(tmp_path):
     assert result["submission"]["score"] == 3
     assert analysis_calls == []
     with service.database.connection() as connection:
-        assert connection.execute("SELECT COUNT(*) FROM recognition_results WHERE model='pp-formulanet-plus-m'").fetchone()[0] == 1
+        row = connection.execute("SELECT provider,model,metadata_json FROM recognition_results LIMIT 1").fetchone()
+        assert row["provider"] == "native_gate_fixture"
+        assert row["model"] == "native-gate-fixture-provider"
+        assert json.loads(row["metadata_json"])["fixture_provider"] is True
 
 
 def test_legacy_assignment_can_switch_before_capture_only(tmp_path):

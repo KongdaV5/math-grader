@@ -209,6 +209,8 @@ class TeacherWorkflow:
         provider = self.service.gateway.model_registry.get(QWEN_MODEL_ID)
         analyzed_pages = []
         page_latencies = []
+        analysis_provider = None
+        analysis_model = None
         for page in submission["pages"]:
             source = self.service._stored_page_path(page["source_ref"])
             if source is None or not source.is_file():
@@ -220,13 +222,15 @@ class TeacherWorkflow:
                 prompt=ANALYSIS_PROMPT,
                 constraints={"max_tokens": 3072, "prompt_version": ANALYSIS_PROMPT_VERSION},
             ))
+            analysis_provider = result.provider
+            analysis_model = result.model
             raw = _json_object(result.text)
             analyzed_pages.append({"page_index": page["page_index"], "questions": raw.get("questions")})
             page_latencies.append({"page_index": page["page_index"],
                                    "latency_ms": int((time.perf_counter() - started) * 1000)})
         draft = _normalize_draft({"pages": analyzed_pages}, len(submission["pages"]))
         now = _now()
-        metadata = {"provider": "mlx_vlm", "model": QWEN_MODEL_ID,
+        metadata = {"provider": analysis_provider, "model": analysis_model,
                     "prompt_version": ANALYSIS_PROMPT_VERSION, "page_count": len(submission["pages"]),
                     "page_latencies": page_latencies}
         with self.database.connection() as connection:
@@ -517,11 +521,11 @@ class TeacherWorkflow:
                         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'SUCCESS',?,?,?)""",
                         (run_id, submission_id, page_id, crop["id"], crop["page_template_id"],
                          crop["template_version"], crop["question_id"], crop["answer_region_id"],
-                         crop["region_index"], crop["crop_path"], result.provider, model_id,
+                         crop["region_index"], crop["crop_path"], result.provider, result.model,
                          result.latency_ms, json.dumps(metadata, ensure_ascii=False), _now(),
                          result.text, normalized, result.confidence))
                 return {"run_id": run_id, "answer": normalized, "confidence": result.confidence,
-                        "model": model_id, "error": None}
+                        "model": result.model, "error": None}
             except Exception as error:
                 last_error = "{}: {}".format(model_id, str(error)[:250])
         run_id = _id()

@@ -7,6 +7,8 @@ from pathlib import Path
 import plistlib
 import subprocess
 
+from tauri_csp import verify_policy_embedded
+
 
 def require(condition, message):
     if not condition:
@@ -24,12 +26,19 @@ def main():
     parser.add_argument("--frontend-dist", type=Path, required=True)
     args = parser.parse_args()
     app = args.app.resolve()
+    repository = Path(__file__).resolve().parents[1]
     resources = app / "Contents/Resources"
     runtime = resources / "runtime"
     executable = app / "Contents/MacOS/math-grader-desktop"
     manifest_path = runtime / "runtime-manifest.json"
     require(app.is_dir(), "Math Grader.app bundle is missing")
     require(executable.is_file(), "Tauri desktop executable is missing")
+    tauri_config = json.loads((repository / "desktop/src-tauri/tauri.conf.json").read_text(encoding="utf-8"))
+    csp = tauri_config["app"]["security"]["csp"]
+    try:
+        verify_policy_embedded(csp, executable.read_bytes())
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
     require((resources / "local_service/capture_page.html").is_file(), "P2 Capture page is missing")
     require((resources / "local_service/runtime_info.py").is_file(), "P5-L2 runtime health code is missing")
     require((runtime / "python/bin/python3.12").is_file(), "Bundled Python executable is missing")
@@ -74,6 +83,7 @@ def main():
         "dependencies": manifest["dependencies"],
         "model_weights_in_bundle": len(weights),
         "p5_ui": "present in the frontend embedded by this Tauri build",
+        "native_image_csp": "exact loopback image origin embedded; no wildcard sources",
         "capture_page": "present",
     }, ensure_ascii=False, indent=2))
 
