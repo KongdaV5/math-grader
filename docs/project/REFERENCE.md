@@ -1,8 +1,8 @@
 # 本地小学数学作业拍照批改系统
 ## 项目参考手册 / Architecture & Execution Playbook
 
-**版本：v0.2**  
-**日期：2026-09-20**  
+**版本：v0.3**
+**日期：2026-09-25**
 **状态：当前项目主参考文档**  
 **适用对象：项目本人、Codex、Workbuddy、其他开发模型、后续维护者**
 
@@ -704,9 +704,9 @@ multi_blank
 
 # 12. P0：真实作业 Benchmark
 
-P0 是整个项目最重要的技术 Gate。
+P0 是识别选型与质量判断的重要技术 Gate。P0-W1 Benchmark Foundation 已 PASS；真实数据与模型比较延后到应用骨架和识别接入之后。
 
-**P0 没跑完，不进入完整 UI 开发。**
+**P0-W1 PASS 只代表评测基础可用，不代表识别模型已达标。P0 不阻止 P1 的最小端到端应用骨架。真实识别模型进入生产路径前，仍必须完成模型 Benchmark 与质量 Gate。**
 
 ---
 
@@ -989,42 +989,36 @@ benchmark/
 
 ---
 
-# 20. P1：Core Engine 骨架
+# 20. P1：Application Foundation
 
-建立：
+先建立可运行、可继续扩展的本地应用闭环：
 
 ```text
-math-grader/
-├── app/
-├── capture/
-├── core/
-│   ├── image/
-│   ├── template/
-│   ├── page_match/
-│   ├── crop/
-│   ├── ocr/
-│   ├── formula/
-│   ├── vision/
-│   ├── normalize/
-│   ├── grader/
-│   ├── confidence/
-│   ├── analytics/
-│   └── logging/
-├── database/
-├── models/
-├── benchmark/
-├── tests/
-├── samples/
-├── scripts/
-└── docs/
+Tauri 2 + React + TypeScript
+↓
+本地 Python HTTP 服务
+↓
+版本化 SQLite migrations
+↓
+Class / Student / Assignment / Submission / SubmissionPage
+↓
+集中管理的 Submission 状态机
+↓
+SQLite 持久任务队列 + 顺序 worker
+↓
+Recognition Gateway + 可插拔 Provider 注册
+↓
+Mock Provider → 本地保存结果 → Desktop 显示
 ```
 
 要求：
 
-- 无完整 UI；
-- 模型路径不可硬编码；
-- 模块职责明确；
-- 有最基础 CLI。
+- 本地服务负责所有 SQLite 读写；Desktop 不直接访问数据库；
+- `完成该生` 才将多页 Submission 放入后台队列；
+- UI 不等待批改完成，拍一页不自动切换学生；
+- 识别配置与模型路由不散落在 UI 或 Submission 流程；
+- P1 只使用 Mock Provider，不下载模型、不运行真实 OCR；
+- P0 Benchmark 子系统保留，模型 Benchmark 延后到 P6。
 
 ---
 
@@ -2156,51 +2150,39 @@ STOP
 
 # 45. 当前开发阶段顺序
 
-正式顺序调整为：
+当前正式顺序为：
 
 ```text
-P0  真实作业 Benchmark
+P0-W1 Benchmark Foundation 已 PASS（评测代码永久保留）
 ↓
-STOP
-
-P1  Core Engine 骨架
+P1 Application Foundation
 ↓
-P2  Capture Bridge
+P2 Capture Bridge
 ↓
-STOP
-
-P3  图像预处理
+P3 Image Pipeline
 ↓
-P4  模板系统
+P4 Template System
 ↓
-P5  答案区域提取
+P5 Recognition Integration
 ↓
-STOP
-
-P6  OCR / Formula / VLM
+P6 Model Benchmark（使用真实应用管线评估候选模型）
 ↓
-P7  答案标准化
+P7 Normalize
 ↓
-P8  数学判分
+P8 Grader
 ↓
-P9  Confidence / 人工复核
+P9 Confidence / Review
 ↓
-STOP
-
-P10 学生长期档案
+P10 Student History
 ↓
-P11 学习分析 / 字迹数据
+P11 Analytics
 ↓
-STOP
-
-P12 正式桌面客户端
+P12 Desktop UI 完善与产品化
 ↓
-V1 完成
-
-P13 Continuity Camera 专业模式
-↓
-可选后续
+后续可选：Continuity Camera 专业模式
 ```
+
+P0-W2 不再是 P1 的前置工作；模型 Benchmark 的阶段编号和实施时机改为 P6。P1 的 Mock Provider 只验证应用边界与端到端流程，不构成模型质量证据。
 
 ---
 
@@ -2274,7 +2256,7 @@ V1 必须同时满足：
 | 中文手写 | 中高 | VLM |
 | 模型升级回归 | 高 | Golden Set |
 | 数据丢失 | 高 | Backup |
-| UI 提前开发 | 中 | UI 延后 |
+| 完整批改 UI 早于识别管线 | 中 | P1 仅做班级与 Submission 最小操作面；完整批改与分析 UI 留到 P12 |
 | 模型过重 | 中 | P0 Benchmark |
 
 ---
@@ -2294,45 +2276,32 @@ V1 必须同时满足：
 9. 模板失败仍继续自动批改；
 10. 人工修正不留记录；
 11. 模型升级不做 Regression；
-12. UI 先于核心识别验证；
+12. 在识别管线形成前开发完整批改/分析 UI（P1 最小应用闭环除外）；
 13. 把保存字迹样本称为“自动训练完成”。
 
 ---
 
 # 49. 当前下一步
 
-**现在仍然只执行 P0。**
-
-但 P0 之后第二优先级已经明确：
-
-> Capture Bridge。
-
-因此当前近期路线：
+P0-W1 Benchmark Foundation 已 PASS。当前工作包为 P1 Application Foundation；完成并通过交接后停止，不自动进入 P2。
 
 ```text
-P0
-真实作业 Benchmark
+P0-W1 Benchmark Foundation 已 PASS
 ↓
-确认模型
+P1 Application Foundation
 ↓
-STOP
-
-P1
-Core Engine 骨架
+P2 Capture Bridge
 ↓
-P2
-手机—Mac Capture Bridge
+P3 Image Pipeline
 ↓
-完成多页 Submission 拍摄闭环
+P4 Template System
 ↓
-STOP
+P5 Recognition Integration
+↓
+P6 Model Benchmark
 ```
 
-只有到这里，才开始大规模推进：
-
-- 模板；
-- OCR；
-- 判分；
+模型 Benchmark 仍然保留，只是等本地采集、图像与识别接口形成后，再用真实应用管线评估模型。P1 不接真实 OCR，不开始 P2。
 - 完整客户端。
 
 ---
@@ -2418,6 +2387,16 @@ Auto Precision ≥ 99.5%
 13. 更新 V1 Definition of Done；
 14. 更新开发阶段顺序。
 
+## v0.3 变更摘要
+
+相对 v0.2：
+
+1. P0-W1 Benchmark Foundation 标记为已 PASS；
+2. P1 改为 Application Foundation，先建立可运行的 Tauri / React / Python / SQLite / Queue / Mock Recognition 端到端骨架；
+3. P0-W2 Model Benchmark 不再紧跟 P0-W1，模型 Benchmark 延后到 P6；
+4. 正式顺序调整为 P0-W1 → P1 → P2 Capture Bridge → P3 Image Pipeline → P4 Template System → P5 Recognition Integration → P6 Model Benchmark → Normalize / Grader / Confidence / Student History / Analytics / UI 完善；
+5. 澄清 P1 最小 UI 不代表开始完整批改 UI，也不代表真实模型达到质量 Gate。
+
 ---
 
-> **当前版本 v0.2 取代 v0.1，作为后续开发的唯一主参考基线。**
+> **当前版本 v0.3 取代 v0.2，作为后续开发的唯一主参考基线。**

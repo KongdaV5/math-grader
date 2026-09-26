@@ -1,12 +1,18 @@
 # 最新交接
 
-- 工作包：**P0-W1 Benchmark Foundation**
+- 工作包：**P1-W1 Application Foundation**
 - 状态：**PASS**
-- 实现提交：`15ae9ea0f125b744b44edfad06f629d403292746`
-- 交接文件：[P0-W1-2026-09-25.md](handoffs/P0-W1-2026-09-25.md)
+- Branch：`phase/p1`
+- Start SHA：`0ffc4b7ff336d33f8836fbb9f998daea5443c4fe`
+- Implementation End SHA：`cd1114122396f2f8c11df3abef71d468e012abe1`
+- 交接文件：[P1-W1-2026-09-25.md](handoffs/P1-W1-2026-09-25.md)
 
-本轮仅完成 Benchmark Foundation；未接入或实测 OCR/VLM，也未启动 P0-W2。定向测试、空数据集 CLI smoke、忽略规则和提交前差异检查均通过。完整文件列表、测试记录、已知限制和下一 Gate 见本次 handoff。
+P1-W1 已建立 Tauri 2 / React 桌面应用、Python 本地服务、SQLite migrations、Submission 状态机、持久顺序队列与 Recognition Gateway / Mock Provider。原 P0-W1 28 项测试未回归，全套共 40 项通过。浏览器 UI ↔ 本地服务 Mock E2E、Tauri dev、macOS `.app` build 与包内 service health smoke 均通过。
+
+路线已改为 P0-W1 → P1 → P2 → P3 → P4 → P5 → P6 Model Benchmark → 后续 Normalize / Grader / Confidence / Student History / Analytics / UI 完善。P0 Benchmark 子系统继续保留；P0-W2 不再是 P1 前置。本轮未启动 P2，也未接真实 OCR/VLM。
+
+实现提交之后新增一个 docs-only closeout commit 记录本 handoff；请用 `git rev-parse HEAD` 获取当前完整仓库 HEAD。
 
 ## 下一工作包
 
-P0-W2 Model Benchmark 是后续候选工作。本轮在 P0-W1 结束后停止，不自动开始下一阶段。
+**P2 Capture Bridge** — 仅在单独启动 P2 时开始。沿用当前多页 Submission 状态机；需先设计 Capture Session、设备授权、断线恢复和明确的学生切换流程。拍一页不得自动切换学生。
