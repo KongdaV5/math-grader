@@ -2,17 +2,17 @@
 
 ## 当前状态
 
-- 阶段：**P4-X1 — Template → Crop → Real Recognition → Result Inspection**
-- 当前工作包：**P4-X1**
-- 状态：**PASS**（真实 Small、Medium、Formula、4B 模型链路及客户端检查已通过；正式 Python/依赖打包仍是发布阻塞）
-- Branch：`phase/p4-x1`
-- Start SHA：`fa9564d5a5ad47f6dffcd52914d0546f18e41589`
-- P4-X1 Implementation End SHA：`46ca268316e30ed9fc438c4d178f948807419208`
+- 阶段：**P5-L1 — Teacher Workflow + Auto Exam Template + Grading Vertical Slice**
+- 当前工作包：**P5-L1**
+- 状态：**PASS**（普通老师工作流已形成可运行纵向切片；测试使用合成试卷，不代表真实学生作业准确率）
+- Branch：`phase/p5-l1`
+- Start SHA：`c4316051ce3ead739f729b969275b17b52fc75c1`
+- P5-L1 Implementation End SHA：`6510dae56f7865c2eac9500b5b331faf14519275`
 - P0-W1 Benchmark Foundation：**PASS，未重做**
 - P1-W1 Application Foundation：**PASS**
-- P2 Capture Bridge：**READY_FOR_DEVICE_TEST**；真实 iPhone Safari 尚未验收，不能标记 PASS。本轮按新授权启动 P3-X1，未合并 P2 到 main。
+- P2 Capture Bridge：**READY_FOR_DEVICE_TEST**；真实 iPhone Safari 尚未验收，不能标记 PASS。P2 设备验收 Gate 独立保留，当前分支未将 P2 合并到 main。
 - P3-X1 Implementation End SHA：`06cd1e3035e2b870ea208efd080f68810e6929b6`
-- 下一 Gate：P2 真实 iPhone Safari 设备验收独立保留；P4 完成后停止，不自动开始判分。
+- P2 真实 iPhone Safari 设备验收独立保留；P5 不包含正式 Runtime Packaging 或最终 Benchmark / Confidence。
 
 ## P1-W1 基线
 
@@ -73,7 +73,17 @@
 - Recognition Lab 位于设置的高级工具；Settings 显示依赖健康；Model Center 区分安装与 Provider 可用/已加载。
 - P2 浏览器拍摄回归完成，真实 iPhone Safari 尚未验收，**P2 仍为 READY_FOR_DEVICE_TEST**。
 
+## P5-L1 交付结果
+
+- 普通“开始批改”页提供 Submission Workspace：Assignment → Student → Submission → Pages；手机或桌面完成提交后，可直接查看每页原图并进入批改，不需要打开 Recognition Lab。
+- 老师可选模板库已有题册，或对本次多页作业执行 Qwen3-VL 4B 整页分析；系统给出题目结构、答案区域和标准答案候选，老师可编辑后一次确认。
+- 确认后生成仅归属当前 Assignment 的临时模板。该 Assignment 后续学生复用结构，不再触发整页试卷分析。
+- 普通批改路径使用现有 PP-OCR / Formula / Qwen 识别路由，经过确定性答案规则判分；低置信度、缺答案键或页题不匹配进入 Review。QuestionResult 与 Submission 分数在审核闭环完成后持久化。
+- 实际 Qwen3-VL 4B + PP-OCRv6 Small 的隔离数据 E2E：Student A 四页分析一次并确认 8 题，8/8 完成；Student B 四页复用同一 Assignment 模板，无二次整页分析，7/8 完成。另以桌面浏览器操作真实老师端：四页原图显示、32 个题目候选编辑/确认、Student A 进入待复核、Student B 直接复用模板并进入批改，Review 页面可人工处理单题。以上均为合成测试图，无真实学生数据。
+- P0–P4 回归及新增 P5 用例合计 **97 passed**；React TypeScript/Vite build、`cargo check`、`git diff --check` 通过。详细记录见 `TEST_STATUS.md` 与 P5-L1 handoff。
+- P2 仍为 **READY_FOR_DEVICE_TEST**，未因 P5 回归改为 PASS。正式 Python/依赖打包问题仍保留为发布风险。
+
 ## 下一步
 
-1. 用户按 P2 handoff 使用真实 iPhone Safari 验收；确认通过后才能将 P2 标记 PASS。
-2. 后续阶段需处理正式 Python/依赖打包与真实作业 Benchmark；当前不开始数学判分。
+1. P2 真正 iPhone Safari 验收仍按独立 handoff 进行；验收通过后才能将 P2 标记 PASS。
+2. 本轮授权范围完成。Production Runtime Packaging 与最终 Benchmark / Confidence 均未开始，需等后续明确工作包。

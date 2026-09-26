@@ -47,12 +47,13 @@
 - Release blocker：正式 `.app` 使用系统 Python 与未随包提供的 OCR/Formula/MLX 依赖；运行环境页已明确显示。P2 仍为 `READY_FOR_DEVICE_TEST`。
 - 完整交接：`docs/project/handoffs/P4-X1-2026-09-26.md`。
 
-## IN PROGRESS — P5-L1 Teacher Workflow + Auto Exam Template + Grading Vertical Slice
+## DONE — P5-L1 Teacher Workflow + Auto Exam Template + Grading Vertical Slice
 
 - Model request：GPT-6 Luna。当前线程不提供模型切换能力；未使用 Sol，也未委派其他模型。
 - Branch：`phase/p5-l1`。
 - Start SHA：`c4316051ce3ead739f729b969275b17b52fc75c1`；这是需求记录提交，不是 P5 实现。
-- 当前状态：**IN PROGRESS**。本轮已开始实现，不再停留在需求文档。
+- 状态：**PASS**；P5-L1 实现、真实模型隔离 E2E、桌面浏览器老师流程和 P0–P4 regression 已完成。
+- Implementation End SHA：`6510dae56f7865c2eac9500b5b331faf14519275`。
 - 明确排除：Production Runtime Packaging、最终 Benchmark / Confidence。
 
 User-defined end-to-end target:
@@ -64,9 +65,13 @@ User-defined end-to-end target:
 - The temporary template is scoped to the current quiz/assignment. Whether to promote it into the reusable template library is a separate future decision.
 - P5 delivers the teacher-facing Submission Workspace, existing-workbook/new-exam entry, one-time Qwen3-VL 4B full-page analysis, editable Answer Key Builder, Assignment-scoped temporary template, normal PP-OCR/Formula/Qwen answer recognition, deterministic grading, human review, and final QuestionResult/Submission score.
 - Acceptance includes a four-page Student A flow, Student B reuse without another full-page exam analysis, P0–P4 regression, and a handoff. P2's real iPhone Safari gate remains independent and is still `READY_FOR_DEVICE_TEST`.
+- 真实本地 Qwen3-VL 4B + PP-OCRv6 Small 隔离数据验收：Student A 四页一次试卷分析、8 题 8/8；Student B 复用 Assignment 模板、不重复整页分析、7/8。桌面 UI 另外验证四页图像可见、分析草稿与一次确认、Student B 模板复用、人工复核单题确认。测试图片为合成内容。
+- 验证：Python **97 passed**；React TypeScript/Vite build、`cargo check`、`git diff --check` 通过。完整记录：`TEST_STATUS.md`、`docs/project/handoffs/P5-L1-2026-09-26.md`。
+- 明确未开始：Production Runtime Packaging、最终 Benchmark / Confidence；P2 仍是 `READY_FOR_DEVICE_TEST`。
+- 完整交接：`docs/project/handoffs/P5-L1-2026-09-26.md`。
 
 ## LATER — P5-L1 之后
 
-真实学生数据 Model Benchmark → 确定性判分 → Confidence / Human Review → Student History → Analytics → 正式 Python/依赖打包。当前不自动开始下一阶段。
+真实学生数据 Model Benchmark → Confidence / Human Review 深化 → Student History → Analytics → 正式 Python/依赖打包。当前不自动开始下一阶段。
 
 P0 Benchmark 子系统永久保留；P0-W2 不再是 P1 前置。

@@ -177,3 +177,43 @@
 - `.venv/bin/python -m pytest -q tests/test_capture_bridge.py`：**18 passed**；`.venv/bin/python -m pytest -q`：**92 passed**；`compileall`：PASS。Desktop `typecheck`、Vite build、Capture URL tests **2 passed**、coordinates tests **2 passed**；`npm run desktop:build`：PASS；`git diff --check`：PASS。
 - 实际 LAN Session smoke 使用临时数据库：selected `en0 / 192.168.31.89`；listener `192.168.31.89:8766`；URL `http://192.168.31.89:8766/capture?t=<redacted>`；TCP listener check PASS；之后结束 Session，8766 listener 关闭。安装更新后的 Desktop `.app` 并启动，服务报告同一 LAN IPv4，Capture Session 为 INACTIVE。
 - P2 API regression 覆盖 Session/token 哈希与失效、上传/多页、删除重排、finish 幂等与下一学生推进、HTTP 权限边界和 listener 生命周期。此前 Browser E2E 已覆盖预览重拍、多页即时上传、删除重排、finish/next student 与 Desktop 队列；本次只改网络地址和 Desktop URL 展示链路。真实 iPhone Safari 尚未验证，P2 保持 **READY_FOR_DEVICE_TEST**。
+
+---
+
+# P5-L1 Teacher Workflow + Auto Exam Template + Grading Vertical Slice
+
+## 基线与版本
+
+- Start branch：`phase/p4-x1`；Start SHA：`c4316051ce3ead739f729b969275b17b52fc75c1`（只记录需求事实的提交，不是 P5 实现）。
+- Implementation branch：`phase/p5-l1`；实现提交：`d123e567946aece28f8e780e3c6ff4d91df0fd7a`；Review 页码提示修正：`6510dae56f7865c2eac9500b5b331faf14519275`。
+- Python 全套：**97 passed**（此前 P0–P4 92 项 + P5 新增 5 项）。
+- Python 开发环境：`.venv-p4`，Python 3.12.14；正式 `.app` Python / 模型依赖打包仍是已知发布风险，本阶段没有处理。
+
+## 自动验证
+
+- `.venv-p4/bin/python -m pytest -q`：**97 passed**，覆盖 P0–P4 回归及全部 P5 用例。
+- `npm run build`（`desktop/`，包括 TypeScript 检查）：**PASS**。
+- `cargo check`（`desktop/src-tauri/`）：**PASS**。
+- `git diff --check`：**PASS**。
+- P5 新增 5 项测试覆盖：四页 Student A 与 Student B Assignment 模板复用；老师 Capture finish 后原图/页面进入批改工作区且不走旧 Submission job；已有题册入口和 Formula 识别路由；无 Capture 活动时可切换老师模式、开始 Capture 后拒绝切换；教师流程 API 与原图 API。
+
+## 真实模型验收
+
+- 在隔离临时数据库以真实本地 Qwen3-VL 4B + PP-OCRv6 Small 执行 Student A / Student B 纵向 E2E。Student A 四页触发一次整页分析，Qwen 提出 8 题；老师确认题目/区域/答案后对 8 个答案区域执行 Small OCR，确定性规则最终保存 **8/8**。Student B 四页没有再次调用整页 Qwen 分析，复用同一 Assignment 临时模板，Small OCR 运行 8 个区域并保存 **7/8**。
+- 这组数据是专门制作的合成试卷，不含真实学生作业；结果证明调用与持久化路径，不构成模型准确率 Benchmark。
+
+## 桌面老师端浏览器 E2E
+
+- 临时服务使用 `.venv-p4` 与本地模型，监听 `127.0.0.1:8767`；Vite 使用已允许的 `127.0.0.1:1420`。临时数据目录位于系统 `/tmp`，不会混入正式用户数据。
+- 通过真实 React UI 创建测试班级、两名学生和 Assignment；上传 4 张带合成算式的作业图并完成 Student A。Workspace 直接显示 4 页原图、页码和一次性试卷分析入口。
+- 在普通老师页触发真实 Qwen 整页分析，显示 4 页、共 32 个题目/答案区域/标准答案候选；在界面一次确认 Assignment 临时模板。Student A 使用 PP-OCR 开始判分；由于合成页答案框未填写，低置信度结果进入人工复核。Review 页面显示原图、页号与题号；实际人工确认其中一道测试题后，待复核数从 32 降到 31。
+- Student B 上传同一份 4 页合成测试卷；Workspace 显示“已确认 · 学生共用”结构，可直接开始识别判分，没有整页分析操作。Student B 进入正常识别和人工复核路径，Assignment 模板未复制成每生重新分析。
+- 页码实测发现复核队列相同题号跨页重复时原 UI 只显示题号；已调整为同时显示 `第 N 页 · 第 M 题`，build 与 UI DOM 检查通过。
+- 临时服务和 Vite 已停止；合成图位于 `/tmp/math-grader-p5-ui-pages/`，没有提交 Git。未对正式 `.app` 或用户本地数据库执行操作。
+
+## 范围与边界
+
+- P5 的 Qwen 分析、临时模板、题目识别、确定性判分、QuestionResult、Submission score 与 Human Review 均在本地服务和普通老师 UI 中接通。
+- `Recognition Lab` 保留为高级工具；老师开始普通 Assignment 后不需要进入该实验页。
+- 没有使用真实学生照片；没有开始 Production Runtime Packaging，也没有进行最终 Benchmark / Confidence。
+- P2 Capture Bridge regression 均通过，但真实 iPhone Safari 未验收。P2 继续保持 **READY_FOR_DEVICE_TEST**，不可据此标记 PASS。
