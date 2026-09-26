@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { api, type CaptureSessionSnapshot } from "./api";
+import { getCaptureUrlPresentation } from "./captureUrlPresentation";
 
 type CaptureControlsProps = {
   assignmentId: string;
@@ -23,6 +24,7 @@ export function CaptureControls({ assignmentId, assignmentLabel, serviceReady, o
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const captureUrl = getCaptureUrlPresentation(snapshot?.capture_url);
 
   const refresh = useCallback(async () => {
     try {
@@ -50,11 +52,11 @@ export function CaptureControls({ assignmentId, assignmentLabel, serviceReady, o
 
   useEffect(() => {
     let current = true;
-    if (!snapshot?.capture_url) {
+    if (!captureUrl) {
       setQrDataUrl("");
       return () => { current = false; };
     }
-    void QRCode.toDataURL(snapshot.capture_url, {
+    void QRCode.toDataURL(captureUrl.qrValue, {
       width: 260,
       margin: 2,
       errorCorrectionLevel: "M",
@@ -65,7 +67,7 @@ export function CaptureControls({ assignmentId, assignmentLabel, serviceReady, o
       if (current) setError(cause instanceof Error ? cause.message : "二维码生成失败");
     });
     return () => { current = false; };
-  }, [snapshot?.capture_url]);
+  }, [captureUrl?.qrValue]);
 
   async function start() {
     if (!assignmentId || !selectedHost || busy) return;
@@ -117,14 +119,14 @@ export function CaptureControls({ assignmentId, assignmentLabel, serviceReady, o
           disabled={!serviceReady || busy || snapshot?.addresses.length === 0}
         >
           {snapshot?.addresses.map((address) => (
-            <option key={address.ip} value={address.ip}>{address.ip} · {address.interface}</option>
+            <option key={address.ip} value={address.ip}>{address.ip}</option>
           ))}
           {!snapshot?.addresses.length && <option value="">未发现局域网地址</option>}
         </select>
         <p className="bridge-help">
           {snapshot?.addresses.length
             ? `将为「${assignmentLabel || "当前作业"}」开启一次班级拍摄。手机和 Mac 需连接同一 Wi-Fi。`
-            : "请先让 Mac 连接 Wi-Fi，再刷新页面。"}
+            : "未发现可用于手机连接的局域网 IPv4 地址。请先让 Mac 连接 Wi-Fi 或 Ethernet，再刷新页面。"}
         </p>
         <button
           className="button primary"
@@ -151,8 +153,8 @@ export function CaptureControls({ assignmentId, assignmentLabel, serviceReady, o
           {qrDataUrl && <img className="capture-qr" src={qrDataUrl} alt="手机拍摄二维码，请使用 iPhone 相机扫描" />}
         </div>
         <p className="field-label">手机地址</p>
-        <a className="capture-url" href={snapshot.capture_url ?? undefined} target="_blank" rel="noreferrer">
-          {snapshot.capture_url}
+        <a className="capture-url" href={captureUrl?.displayHref} target="_blank" rel="noreferrer">
+          {captureUrl?.displayText}
         </a>
         <div className="bridge-background">
           <span className="field-label">Mac 后台队列</span>

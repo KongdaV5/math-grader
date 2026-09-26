@@ -8,6 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "test:coordinates": "node --experimental-strip-types --test src/coordinates.test.ts",
+    "test:capture-url": "node --experimental-strip-types --test src/captureUrlPresentation.test.ts",
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build",
     "demo:dev": "node scripts/dev-with-service.mjs",

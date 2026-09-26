@@ -46,6 +46,7 @@
 - 只有确认“完成该生”后 Submission 才进入 READY / QUEUED 并推进 roster；后台 worker 与下一位手机采集并行；结束/过期/进程重启时旧 token 失效并关闭 LAN listener。
 - 新增 P2 自动测试 11 项；Python 全套 **51 passed**。React typecheck/build、cargo check、Tauri dev/service health、`.app` build smoke 均通过。
 - Browser E2E 已验证二维码、预览重拍、三页即时上传、中间页删除后的页码整理、刷新恢复、明确 finish 后换学生、下一学生页面归属、Mac 队列显示和全班完成状态。临时测试 worker 保持停止以观察 `排队中`；真实设备 Gate 仍待完成。
+- 2026-09-26 真机验收反馈报告 QR/地址疑似包含 `.en0`。复核当前 app bundle 未能复现：发现层和 URL formatter 均未拼接接口名；原 Desktop 地址选择项显示 `IP · interface` 容易混淆，现改为只显示 IP，并用 IPv4-only formatter 拒绝带接口名的 host。Mac 实测选中 `en0 / 192.168.31.89`，默认路由为非 LAN 候选 `utun6`；隔离数据 Session 实际绑定 `192.168.31.89:8766`，生成 URL 格式正确并已结束。新增多接口、VPN 优先级、活动接口、loopback、无 LAN 和 QR/Desktop 一致性测试；全套 Python **92 passed**。新 `.app` 已安装并启动。**P2 仍为 READY_FOR_DEVICE_TEST，未标 PASS。**
 
 ## 环境与已知限制
 

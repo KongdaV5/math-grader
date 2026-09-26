@@ -12,7 +12,11 @@ from urllib.request import Request, urlopen
 
 import pytest
 
-from local_service.capture_bridge import CaptureBridge, discover_lan_ipv4_addresses
+from local_service.capture_bridge import (
+    CaptureBridge,
+    build_capture_url,
+    discover_lan_ipv4_addresses,
+)
 from local_service.http_server import create_server
 from local_service.recognition import ProviderRegistry, RecognitionResult
 from local_service.service import (
@@ -33,12 +37,16 @@ PNG_IMAGE = base64.b64decode(
 
 
 def test_lan_address_discovery_prefers_wifi_and_ignores_vpn_benchmark_ranges(monkeypatch):
-    ifconfig_output = """utun6: flags=8051<UP,POINTOPOINT,RUNNING,MULTICAST> mtu 4064
+    ifconfig_output = """lo0: flags=8049<UP,LOOPBACK,RUNNING,MULTICAST> mtu 16384
+\tinet 127.0.0.1 netmask 0xff000000
+utun6: flags=8051<UP,POINTOPOINT,RUNNING,MULTICAST> mtu 4064
 \tinet 198.18.0.1 --> 198.18.0.1 netmask 0xffffff00
 en0: flags=8863<UP,BROADCAST,SMART,RUNNING,SIMPLEX,MULTICAST> mtu 1500
 \tinet 192.168.31.89 netmask 0xffffff00 broadcast 192.168.31.255
 bridge0: flags=8863<UP,BROADCAST,SMART,RUNNING,SIMPLEX,MULTICAST> mtu 1500
 \tinet 192.168.64.1 netmask 0xffffff00
+en6: flags=8863<UP,BROADCAST,SMART,SIMPLEX,MULTICAST> mtu 1500
+\tinet 10.20.0.9 netmask 0xffffff00
 """
 
     def run(command, **_kwargs):
@@ -51,6 +59,90 @@ bridge0: flags=8863<UP,BROADCAST,SMART,RUNNING,SIMPLEX,MULTICAST> mtu 1500
 
     assert addresses[0] == {"ip": "192.168.31.89", "interface": "en0"}
     assert {item["ip"] for item in addresses} == {"192.168.31.89", "192.168.64.1"}
+
+
+def test_lan_address_discovery_prefers_active_default_route_lan_interface(monkeypatch):
+    ifconfig_output = """en0: flags=8863<UP,BROADCAST,SMART,RUNNING,SIMPLEX,MULTICAST> mtu 1500
+\tinet 192.168.31.89 netmask 0xffffff00
+en2: flags=8863<UP,BROADCAST,SMART,RUNNING,SIMPLEX,MULTICAST> mtu 1500
+\tinet 10.20.0.9 netmask 0xffffff00
+"""
+
+    def run(command, **_kwargs):
+        if command[0] == "ifconfig":
+            return SimpleNamespace(stdout=ifconfig_output)
+        return SimpleNamespace(stdout="interface: en2\n")
+
+    monkeypatch.setattr("local_service.capture_bridge.subprocess.run", run)
+    addresses = discover_lan_ipv4_addresses()
+
+    assert addresses[0] == {"ip": "10.20.0.9", "interface": "en2"}
+    assert {item["interface"] for item in addresses} == {"en0", "en2"}
+
+
+def test_lan_address_discovery_uses_physical_lan_before_private_vpn_address(monkeypatch):
+    ifconfig_output = """utun6: flags=8051<UP,POINTOPOINT,RUNNING,MULTICAST> mtu 1380
+\tinet 10.8.0.7 --> 10.8.0.7 netmask 0xffffff00
+en0: flags=8863<UP,BROADCAST,SMART,RUNNING,SIMPLEX,MULTICAST> mtu 1500
+\tinet 192.168.31.89 netmask 0xffffff00
+"""
+
+    def run(command, **_kwargs):
+        if command[0] == "ifconfig":
+            return SimpleNamespace(stdout=ifconfig_output)
+        return SimpleNamespace(stdout="interface: utun6\n")
+
+    monkeypatch.setattr("local_service.capture_bridge.subprocess.run", run)
+    addresses = discover_lan_ipv4_addresses()
+
+    assert addresses[0] == {"ip": "192.168.31.89", "interface": "en0"}
+    assert addresses[1] == {"ip": "10.8.0.7", "interface": "utun6"}
+
+
+def test_capture_url_uses_ipv4_host_and_port_without_interface_suffix():
+    selected_address = {"ip": "192.168.31.89", "interface": "en0"}
+
+    url = build_capture_url(selected_address["ip"], 8766, "test-token")
+    parsed = urlsplit(url)
+
+    assert url == "http://192.168.31.89:8766/capture?t=test-token"
+    assert parsed.hostname == "192.168.31.89"
+    assert parsed.port == 8766
+    assert "en0" not in url
+
+
+def test_capture_url_rejects_interface_appended_to_ipv4():
+    with pytest.raises(ValidationError, match="plain IPv4 address"):
+        build_capture_url("192.168.31.89.en0", 8766, "test-token")
+
+
+def test_capture_url_rejects_non_ipv4_host():
+    with pytest.raises(ValidationError, match="IPv4 address"):
+        build_capture_url("::1", 8766, "test-token")
+
+
+def test_capture_session_requires_usable_lan_address(tmp_path):
+    service = make_service(tmp_path)
+    _, _, assignment = make_roster(service, size=1)
+    bridge = CaptureBridge(service, port=0, address_provider=lambda: [])
+
+    with pytest.raises(ValidationError, match="No usable private IPv4 LAN address"):
+        bridge.start(assignment["id"], "")
+    assert service.capture_admin_state()["status"] == "INACTIVE"
+
+
+def test_capture_session_rejects_address_with_interface_name(tmp_path):
+    service = make_service(tmp_path)
+    _, _, assignment = make_roster(service, size=1)
+    bridge = CaptureBridge(
+        service,
+        port=0,
+        address_provider=lambda: [{"ip": "192.168.31.89", "interface": "en0"}],
+    )
+
+    with pytest.raises(ValidationError, match="interface names are not part of the host"):
+        bridge.start(assignment["id"], "192.168.31.89.en0")
+    assert service.capture_admin_state()["status"] == "INACTIVE"
 
 
 def make_service(tmp_path, config=None, registry=None):

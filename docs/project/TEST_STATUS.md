@@ -168,3 +168,12 @@
 - 打包 `.app` 的原生模型中心显示四个已安装模型并如实标注 Provider 不可用；设置页显示系统 Python 3.9.6 可启动，但 Pillow、OpenCV、ONNX Runtime、Hugging Face Hub、mlx-vlm、PaddleOCR/PaddlePaddle 均缺失。退出应用后 8765 listener 关闭。正式发布需解决 Python 与依赖打包；开发 Python 3.12 `.venv-p4` 已具备真实模型运行条件。
 - 桌面 `Math Grader.app` 已替换为 P4-X1 包并从该路径重新启动，原生首页显示 `P4-X1 · 本地运行`。
 - P2 保持 `READY_FOR_DEVICE_TEST`，不得凭浏览器回归升级为 PASS。
+
+## P2 LAN URL 真机验收反馈回归（2026-09-26）
+
+- 用户报告 iPhone 扫码地址疑似把接口名拼进 IPv4。审阅运行中的 `.app` 和仓库源码后，未在现有实现中复现该 URL；原 Desktop 地址选择器曾将 IP 与 `en0` 放在同一文本中，可能产生歧义，原 QR 内容无法从当前状态追溯确认。
+- 当前 Mac 网络：`en0` active，`192.168.31.89`；默认路由 `utun6`，其 `198.18.0.1` 不符合 RFC1918；仅 `en0` 是本次可用物理 LAN IPv4。开始检查时 8766 没有活动 listener。
+- 新增 Python 用例覆盖：IP 与 `en0` 分离且 URL 为 `host:port`、拒绝 `192.168.31.89.en0`、拒绝非 IPv4、排除 loopback 与未运行接口、默认路由 LAN 优先、物理 LAN 优先于 VPN、多接口排序、无可用 LAN 时明确报错。新增 Desktop 单元测试确认 QR value、显示链接和显示文字都等于 API 的同一个 `capture_url`。
+- `.venv/bin/python -m pytest -q tests/test_capture_bridge.py`：**18 passed**；`.venv/bin/python -m pytest -q`：**92 passed**；`compileall`：PASS。Desktop `typecheck`、Vite build、Capture URL tests **2 passed**、coordinates tests **2 passed**；`npm run desktop:build`：PASS；`git diff --check`：PASS。
+- 实际 LAN Session smoke 使用临时数据库：selected `en0 / 192.168.31.89`；listener `192.168.31.89:8766`；URL `http://192.168.31.89:8766/capture?t=<redacted>`；TCP listener check PASS；之后结束 Session，8766 listener 关闭。安装更新后的 Desktop `.app` 并启动，服务报告同一 LAN IPv4，Capture Session 为 INACTIVE。
+- P2 API regression 覆盖 Session/token 哈希与失效、上传/多页、删除重排、finish 幂等与下一学生推进、HTTP 权限边界和 listener 生命周期。此前 Browser E2E 已覆盖预览重拍、多页即时上传、删除重排、finish/next student 与 Desktop 队列；本次只改网络地址和 Desktop URL 展示链路。真实 iPhone Safari 尚未验证，P2 保持 **READY_FOR_DEVICE_TEST**。

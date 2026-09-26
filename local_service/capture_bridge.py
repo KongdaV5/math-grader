@@ -4,6 +4,7 @@ import socket
 import subprocess
 import threading
 import time
+from urllib.parse import quote
 
 from local_service.service import ValidationError
 
@@ -26,7 +27,9 @@ def discover_lan_ipv4_addresses():
         for line in result.stdout.splitlines():
             if line and not line[0].isspace() and ": flags=" in line:
                 current_interface = line.split(":", 1)[0]
-                interface_is_up = "UP" in line.split("<", 1)[-1].split(">", 1)[0].split(",")
+                flag_match = re.search(r"<([^>]*)>", line)
+                flags = set(flag_match.group(1).split(",")) if flag_match else set()
+                interface_is_up = {"UP", "RUNNING"}.issubset(flags)
                 continue
             if not interface_is_up or current_interface in {None, "lo0"}:
                 continue
@@ -77,6 +80,21 @@ def discover_lan_ipv4_addresses():
     return addresses
 
 
+def build_capture_url(host, port, token):
+    """Build a phone URL from a plain IPv4 host; interface names are metadata only."""
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError as error:
+        raise ValidationError(
+            "Capture host must be a plain IPv4 address; do not append an interface name"
+        ) from error
+    if address.version != 4:
+        raise ValidationError("Capture host must be an IPv4 address")
+    return "http://{}:{}/capture?t={}".format(
+        address, int(port), quote(str(token), safe="")
+    )
+
+
 def _append_private_address(addresses, value, interface):
     try:
         parsed = ipaddress.ip_address(value)
@@ -120,8 +138,14 @@ class CaptureBridge:
             if self._server is not None:
                 raise ValidationError("A Capture Session is already active")
             choices = self.addresses(refresh=True)
+            if not choices:
+                raise ValidationError(
+                    "No usable private IPv4 LAN address is available. Connect this Mac to Wi-Fi or Ethernet, then refresh."
+                )
             if host not in {item["ip"] for item in choices}:
-                raise ValidationError("Choose one of the available Mac network addresses")
+                raise ValidationError(
+                    "Choose one of the available IPv4 addresses; interface names are not part of the host"
+                )
 
             session = self.service.start_capture_session(assignment_id)
             server = None
@@ -172,7 +196,7 @@ class CaptureBridge:
         with self._lock:
             if (state.get("status") == "ACTIVE" and self._server is not None and
                     self._session_id == state.get("session", {}).get("id") and self._token):
-                state["capture_url"] = "http://{}:{}/capture?t={}".format(
+                state["capture_url"] = build_capture_url(
                     self._host, self._port, self._token
                 )
                 state["host"] = self._host
