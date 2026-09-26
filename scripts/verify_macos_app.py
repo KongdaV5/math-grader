@@ -14,7 +14,7 @@ def require(condition, message):
 
 
 def verify_arch(path):
-    subprocess.run(["/usr/bin/lipo", "-verify_arch", "arm64", str(path)], check=True)
+    subprocess.run(["/usr/bin/lipo", str(path), "-verify_arch", "arm64"], check=True)
 
 
 def main():
