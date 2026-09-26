@@ -18,3 +18,9 @@ benchmark/runs/*
 *.sqlite
 *.sqlite3
 logs/
+node_modules/
+desktop/node_modules/
+desktop/dist/
+desktop/src-tauri/target/
+desktop/.tauri/
+desktop/src-tauri/gen/schemas/

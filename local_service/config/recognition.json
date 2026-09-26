@@ -1,0 +1,25 @@
+{
+  "recognition": {
+    "integer": {
+      "primary": "mock_primary",
+      "fallback": "mock_fallback"
+    },
+    "default": {
+      "primary": "mock_primary"
+    }
+  },
+  "providers": {
+    "mock_primary": {
+      "type": "mock",
+      "model": "mock-v1",
+      "text": "23",
+      "confidence": 0.99
+    },
+    "mock_fallback": {
+      "type": "mock",
+      "model": "mock-fallback-v1",
+      "text": "23",
+      "confidence": 0.99
+    }
+  }
+}

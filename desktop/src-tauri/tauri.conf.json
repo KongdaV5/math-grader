@@ -1,0 +1,43 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Math Grader",
+  "version": "0.1.0",
+  "identifier": "local.math-grader.desktop",
+  "build": {
+    "beforeDevCommand": {
+      "script": "npm run dev",
+      "cwd": ".."
+    },
+    "beforeBuildCommand": {
+      "script": "npm run build",
+      "cwd": ".."
+    },
+    "devUrl": "http://127.0.0.1:1420",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "作业批改系统",
+        "width": 1180,
+        "height": 820,
+        "minWidth": 880,
+        "minHeight": 680,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self' asset: http://asset.localhost; img-src 'self' asset: http://asset.localhost data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src ipc: http://ipc.localhost http://127.0.0.1:8765 tauri: https://tauri.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app"],
+    "icon": ["icons/icon.png", "icons/icon.icns"],
+    "category": "Education",
+    "shortDescription": "本地作业采集与批改",
+    "resources": {
+      "../../local_service/": "local_service/"
+    }
+  }
+}

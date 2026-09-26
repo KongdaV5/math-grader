@@ -1,8 +1,8 @@
-# Math Grader Benchmark Foundation
+# Math Grader — Local Application Foundation
 
-P0-W1 provides model-neutral data contracts, deterministic metrics, a reference-only failure archive, and a small CLI. It does not run OCR or VLM models. The built-in stub emits no answer and routes every question to review, so it can exercise the pipeline without pretending to measure model accuracy.
+P1-W1 adds a runnable local app skeleton on top of the retained P0-W1 benchmark foundation. The desktop uses Tauri 2, React and TypeScript; the local Python service owns SQLite access and a persistent sequential job queue. Recognition currently runs through a configurable Mock Provider. No real OCR/VLM model, model download, cloud API, or P2 Capture Bridge is included.
 
-## Requirements and setup
+## Requirements and Python setup
 
 - Python 3.9 or newer
 - Runtime dependency: `jsonschema` for Draft 2020-12 validation
@@ -17,6 +17,58 @@ python -m pip install --upgrade 'pip>=23.1,<25'
 python -m pip install -e '.[dev]'
 python -m pytest
 ```
+
+## Run the desktop app
+
+The native Tauri app starts the local Python service when its window opens. Python 3.9+ and the Rust toolchain are required for local development. Install the web dependencies once, then:
+
+```sh
+cd desktop
+npm install
+npm run desktop:dev
+```
+
+To run the same React UI against the service in a browser for a quick local demo:
+
+```sh
+npm run demo:dev
+```
+
+The demo uses a temporary data directory. Set `MATH_GRADER_PYTHON` to the desired Python executable if `python3` is not on `PATH`. Tauri uses the same variable to locate Python. The packaged app stores its SQLite database and uploaded page images under the operating system's Math Grader application-data folder. The local service binds only to `127.0.0.1:8765`.
+
+Check the frontend without opening a window:
+
+```sh
+npm run typecheck
+npm run build
+```
+
+## Run the local service by itself
+
+From the project root:
+
+```sh
+python -m local_service
+```
+
+The default database is stored under the platform's local application-data directory. `--data-dir` and `MATH_GRADER_DATA_DIR` can select another local directory. `MATH_GRADER_RECOGNITION_CONFIG` can point to a JSON provider configuration; the versioned default is `local_service/config/recognition.json`.
+
+## Application flow
+
+Create a class, student, and Assignment in the desktop page. Start a student's Submission, add local image pages or test placeholder pages, and click **完成该生**. Only that action changes the Submission to the background queue. The UI keeps the selected student in place and polls for the Mock result.
+
+The Python service manages schema changes from `local_service/migrations/`, validates every Submission status transition in one state machine, and stores Recognition results and job failures in SQLite. Provider implementations are registered behind `RecognitionGateway`; adding a future provider does not require a Desktop or Submission-flow change.
+
+Run the application and existing P0 regression tests:
+
+```sh
+.venv/bin/python -m pytest
+.venv/bin/python -m compileall -q benchmark local_service tests
+```
+
+## Retained P0-W1 Benchmark foundation
+
+The P0-W1 model-neutral contracts, deterministic metrics, reference-only failure archive, and small CLI remain in `benchmark/`. They do not run OCR or VLM models. The built-in stub emits no answer and routes every question to review, so it exercises the benchmark pipeline without pretending to measure model accuracy. Model Benchmark is now scheduled for P6, after Recognition Integration.
 
 ## Run the empty-dataset smoke example
 
