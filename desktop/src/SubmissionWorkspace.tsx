@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, imageUrl, type AssignmentExamTemplate, type ExamQuestionDraft,
   type GradingResult, type Submission, type TemplateGroup } from "./api";
 
@@ -27,6 +27,15 @@ export function SubmissionWorkspace({ assignmentId, assignmentLabel, workflowMod
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [previewPage, setPreviewPage] = useState<Submission["pages"][number] | null>(null);
+  const previewDialog = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = previewDialog.current;
+    if (!dialog) return;
+    if (previewPage && !dialog.open) dialog.showModal();
+    if (!previewPage && dialog.open) dialog.close();
+  }, [previewPage]);
 
   const loadRows = useCallback(async () => {
     if (!assignmentId) { setRows([]); return; }
@@ -143,9 +152,9 @@ export function SubmissionWorkspace({ assignmentId, assignmentLabel, workflowMod
       <div className="submission-photo-grid">{submission.pages.map((page) => <figure key={page.id} className="submission-photo">
         {page.source_ref.startsWith("placeholder://")
           ? <div className="submission-photo-placeholder">测试占位页</div>
-          : <a href={imageUrl("original", page.id)} target="_blank" rel="noreferrer" aria-label={`打开第 ${page.page_index} 页原图`}>
+          : <button type="button" className="submission-photo-open" onClick={() => setPreviewPage(page)} aria-label={`查看第 ${page.page_index} 页原图`} title="查看原图">
             <img src={imageUrl("original", page.id)} alt={`第 ${page.page_index} 页学生作业`} loading="lazy" />
-          </a>}
+          </button>}
         <figcaption>第 {page.page_index} 页{page.original_filename ? ` · ${page.original_filename}` : ""}</figcaption>
       </figure>)}</div>
 
@@ -223,5 +232,15 @@ export function SubmissionWorkspace({ assignmentId, assignmentLabel, workflowMod
         {submission.status === "REVIEW_REQUIRED" && <a className="button secondary" href="#/review">前往人工复核</a>}
       </section> : null}
     </div>}
+    <dialog ref={previewDialog} className="submission-photo-preview" aria-labelledby="submission-photo-preview-title"
+      onClose={() => setPreviewPage(null)} onClick={(event) => { if (event.target === event.currentTarget) previewDialog.current?.close(); }}>
+      {previewPage && <>
+        <div className="submission-photo-preview-heading">
+          <h2 id="submission-photo-preview-title">第 {previewPage.page_index} 页作业原图</h2>
+          <button type="button" className="button secondary" onClick={() => previewDialog.current?.close()}>关闭</button>
+        </div>
+        <img className="submission-photo-preview-image" src={imageUrl("original", previewPage.id)} alt={`第 ${previewPage.page_index} 页学生作业原图`} />
+      </>}
+    </dialog>
   </section>;
 }

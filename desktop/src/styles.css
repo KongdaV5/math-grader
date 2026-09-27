@@ -306,10 +306,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .submission-detail-heading h3 { margin:4px 0 0; }
 .submission-photo-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin:16px 0 20px; }
 .submission-photo { min-width:0; margin:0; }
-.submission-photo a { display:flex; align-items:center; justify-content:center; min-height:160px; max-height:330px; overflow:hidden; border:1px solid #e1e7e1; border-radius:9px; background:#f6f8f5; }
+.submission-photo-open { display:flex; align-items:center; justify-content:center; width:100%; min-height:160px; max-height:330px; padding:0; overflow:hidden; border:1px solid #e1e7e1; border-radius:9px; background:#f6f8f5; cursor:zoom-in; }
+.submission-photo-open:focus-visible { outline:3px solid #27734e; outline-offset:2px; }
 .submission-photo img { display:block; width:100%; max-height:330px; object-fit:contain; }
 .submission-photo figcaption { padding:7px 2px; color:#65746a; font-size:12px; overflow-wrap:anywhere; }
 .submission-photo-placeholder { display:grid; place-items:center; min-height:160px; border:1px dashed #c9d2ca; border-radius:9px; color:#7c897e; background:#f6f8f5; }
+.submission-photo-preview { width:min(94vw,1320px); max-width:none; max-height:92vh; padding:16px; border:1px solid #e1e7e1; border-radius:12px; color:#26362b; background:#fff; box-shadow:0 18px 56px #10201655; }
+.submission-photo-preview::backdrop { background:#142019bf; }
+.submission-photo-preview-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:12px; }
+.submission-photo-preview-heading h2 { margin:0; font-size:16px; }
+.submission-photo-preview-image { display:block; max-width:100%; max-height:calc(92vh - 80px); margin:0 auto; object-fit:contain; }
 .exam-setup { padding:17px; border:1px solid #e5ebe5; border-radius:11px; background:#fbfcfa; }
 .exam-setup h3 { margin:0 0 4px; }
 .exam-entry-options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin-top:15px; }
