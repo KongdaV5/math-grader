@@ -1,3 +1,5 @@
+> 项目知识入口已于2026-09-26收敛到 [Obsidian canonical Status.md](</Users/kongda/Documents/Obsidian/obsidian-vault/Projects/Math-Grader/Status.md>)。以下原文保留为历史/clone技术参考，不再独立更新当前项目状态；其中PASS仅对应原阶段证据。
+
 # 最新交接
 
 - 工作包：**P5-L2 — Production Runtime Packaging + Standalone Desktop Delivery**
