@@ -4,10 +4,10 @@
 
 - 阶段：**P5-L2 — Production Runtime Packaging + Standalone Desktop Delivery**
 - 当前工作包：**P5-L2**
-- 状态：**PARTIAL**（独立 `.app`、捆绑 Runtime 与真实模型后端已验证；Mac 锁屏使原生窗口检查和 Finder 双击验收未完成）
+- 状态：**PASS**（最终 Native Gate 已验证原生图片与大图预览、P5 Teacher Workflow / Human Review / 成绩、bundled Runtime、服务生命周期与冷启动）
 - Branch：`phase/p5-l2`
 - Start SHA：`3d102bd24ddd56d0a5ac8380cfdee721e50574c7`
-- P5-L2 Code Implementation End SHA：`00063964819738c9153794cf485e096ae7ed12af`
+- P5-L2 Code Implementation End SHA：`295dfede7530bb7986ade6f01008d038535bf6f8`
 - P5-L1：**PASS**；交付基线见 TASK_BOARD 与 P5-L1 handoff。
 - P0-W1 Benchmark Foundation：**PASS，未重做**
 - P1-W1 Application Foundation：**PASS**
@@ -53,7 +53,7 @@
 
 - 完整 P1 浏览器 Mock E2E 作为历史验收证据保留。P2 桌面浏览器 Capture UI 流程已覆盖；真实 iPhone Safari 尚未测试。
 - P5-L2 已将 CPython 3.12.14 与锁定依赖放入 `.app`，Release 使用包内明确路径且没有系统 Python fallback；此项取代 P1–P4 的历史运行方式。
-- 当前目标为 Apple Silicon arm64、macOS 15.0+。本地 `.app` 使用 ad-hoc 签名，未公证；尚未验证 Finder 双击启动与原生窗口交互，不能据此宣称已具备公开分发签名。
+- 当前目标为 Apple Silicon arm64、macOS 15.0+。原生 Tauri 窗口已通过 Launchpad / LaunchServices 验收；本地 `.app` 使用 ad-hoc 签名、未公证，Finder 双击单独流程未复验，因此公开分发的 Gatekeeper / Developer ID Gate 仍未完成。
 - P2 未测试真实 iPhone Safari；在真实设备 Gate 通过前，不得声称 P2 PASS。
 - P2 历史交付不含真实 OCR、数学判分或模型 Benchmark；P3-X1 的真实模型边界见下节。
 
@@ -87,16 +87,19 @@
 
 ## P5-L2 Production Runtime Packaging 交付结果
 
-- 分支：`phase/p5-l2`；Start SHA：`3d102bd24ddd56d0a5ac8380cfdee721e50574c7`；最后代码实现提交：`00063964819738c9153794cf485e096ae7ed12af`。安装位置：`~/Desktop/Math Grader.app`；runtime manifest 内 app/runtime 版本为 `0.1.0`，记录的源码 SHA 为最后代码提交。
+- 分支：`phase/p5-l2`；Start SHA：`3d102bd24ddd56d0a5ac8380cfdee721e50574c7`；最终 Native Gate 代码提交及 runtime manifest SHA：`295dfede7530bb7986ade6f01008d038535bf6f8`。最新安装位置：`/Applications/Math Grader.app`；App/Runtime `0.1.0`。
 - `.app` 内含 relocatable CPython **3.12.14 arm64**、锁定的 Python 运行依赖和本地服务资源；系统/用户 Python fallback 已移除。Tauri 管理单实例和服务子进程退出，日志放在 Application Support；模型仍放在用户目录，不包含在 app 内。
 - Runtime 依赖锁在 `uv.lock`。本轮实际 bundle 版本包括 Pillow 11.3.0、NumPy 2.3.5、OpenCV 4.10.0、ONNX Runtime 1.30.0、Hugging Face Hub 1.33.0、PaddlePaddle 3.3.1、PaddleOCR 3.7.0、MLX 0.32.2、mlx-vlm 0.7.3。
 - 真实模型包内解释器 smoke：ImagePipeline、PP-OCRv6 Small、FormulaNet、Qwen3-VL 4B 均成功处理合成 fixture；没有下载、复制或打包模型权重。Installed app 的真实 P5 backend E2E 覆盖 Student A 最终三页（含删除、重排与补拍）、Student B 模板复用、分析一次、OCR、确定性评分、Review、最终 QuestionResult/Submission score。
-- P2 Capture browser 回归及生产前端 workspace/review Chrome E2E 通过；界面浏览器使用构建后的 frontend dist，真实 Tauri 原生窗口检查尚未通过。当前 Mac 锁屏，UI action 无法执行，Finder 双击也未能验收，因此 P5-L2 保持 **PARTIAL**。
+- 首次原生验收曾发现 `img-src` 不允许 `http://127.0.0.1:8765`，且正式库没有 Teacher Workflow 样本；两项 blocker 后续均在本机修复和补验。精确 loopback origin 已进入生产 CSP，没有 wildcard、通用 `http:` 或 Capture LAN 源。最终 Tauri WebView 四页图片、应用内原图预览、Human Review 图片都真实渲染。
+- 隔离 synthetic fixture 完成 Student A 4 页 Review/最终评分 `4/8` 与 Student B 4 页模板复用/`8/8`；原生普通老师入口可选择已有题册或显示新试卷分析。Seeder 明确使用 `inference_performed=false` 的测试 provider；没有把 fixture 当成模型推理或准确率证据。测试后 fixture 已清理。
+- Tauri 自动启动 bundled Python；8765 loopback 正常监听、未开启 Capture 时 8766 不监听；Cmd-Q 后 app/service 与两端口均消失。冷启动恢复隔离数据和页面；无 Terminal / 系统 Python / 手工模型服务依赖。
+- 最终 bundle：CPython `3.12.14 arm64`，OpenCV/ONNX Runtime/Paddle/PaddleOCR/MLX/mlx-vlm 可用，模型权重 0；`codesign --verify --deep --strict` 通过。本地 ad-hoc 签名，未公证。
+- Python 全量 **108 passed**；`compileall`、`uv lock --check`、React/TypeScript/Vite build、前端坐标/Capture URL 测试、arm64 Tauri release build、bundle CSP/metadata verification、签名、原生 Native Gate 均通过。最终 Native Gate 记录见 P5-L2 handoff。
 - `.app` 约 **1.3 GB**，本地 ad-hoc codesign 验证通过，未公证，hardened runtime 关闭。最低系统版本记录为 macOS **15.0**；Intel Mac 不在当前构建目标内。
 - P2 仍为 **READY_FOR_DEVICE_TEST**，真实 iPhone Safari 未测。没有进行真实学生作业准确率 Benchmark，也未开始 P6 Benchmark / Confidence。
 
 ## 下一步
 
-1. 解锁 Mac 后完成 P5-L2 原生窗口及 Finder 双击启动检查，再根据证据更新 P5-L2 状态；当前安装 app 和数据保留。
-2. P2 真正 iPhone Safari 验收仍按独立 handoff 进行；验收通过后才能将 P2 标记 PASS。
-3. 不自动开始 P6 Benchmark / Confidence；需后续明确工作包与数据验收范围。
+1. P5-L2 Native Gate 已 PASS；P2 真实 iPhone Safari 验收仍按独立 handoff 进行，通过前保持 `READY_FOR_DEVICE_TEST`。
+2. 不自动开始 P6 Benchmark / Confidence；真实学生作业准确率 Benchmark 尚未进行。

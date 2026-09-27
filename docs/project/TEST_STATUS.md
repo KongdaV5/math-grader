@@ -247,14 +247,30 @@
 
 ## P5 installed app E2E 与浏览器 E2E
 
+本节首次 Native Gate 的图片 FAIL 与缺少 Teacher Workflow fixture 为修复前历史结果；最终结果见下方“P5-L2 最终 Native Gate 闭环”。
+
 - 使用最终安装 `.app` 的 bundled service 和隔离临时数据执行 Student A / Student B 全链路。Student A 最终三页（包括上传三页、删除中间页、重排后补拍）；finish 后推进 Student B。Qwen 4B 对 A 只做一次整页分析，老师确认临时模板；A 用 OCR、确定性判分和人工复核完成，最终 3/3。Student B 不再整页分析、复用同一 Assignment 模板并完成 Review，最终 3/3。所有图片、班级、学生均为合成测试数据。
 - Capture browser E2E：实际加载 app service 的 Capture 页面，完成预览重拍不上传、逐页即时上传、删除确认及重编号、替换页、finish 确认、自动下一学生和班级完成。
 - 老师 UI E2E：用 production frontend dist 的本地 preview 与隔离 app backend，浏览器实际打开 Review 并处理队列；Workspace 显示合成 Student C 三页原图、已确认且学生共用的临时模板、3/3 成绩和完成状态。此项验证的是生产构建前端经浏览器与服务的交互。
-- 原生 Tauri 窗口 / Finder 双击：**未验证**。Mac 处于锁屏状态，Computer Use 无法进行 UI 操作；再次打开已安装 app 时仍返回锁屏提示。此前直接启动 bundle executable 与 health/API 测试通过，但不能替代 Finder 双击或原生 UI 检查。
+- 历史首次 Native Gate（2026-09-26，后由最终闭环记录 supersede）：用户从 Launchpad 启动后实际操作首页、开始批改、作业、Submission Workspace、人工复核、模板、模型中心与设置/About。运行 bundle manifest 为 Git SHA `00063964819738c9153794cf485e096ae7ed12af`、App/Runtime 0.1.0、CPython 3.12.14 arm64；About 中 Pillow、NumPy、OpenCV、ONNX Runtime、Hugging Face Hub、Paddle、PaddleOCR、MLX、mlx-vlm 均为可用。
+- Submission Workspace 显示两页原图入口，图片 API 均返回有效 JPEG（4032×3024），但 Tauri WebView 图片区域显示 alt 文本。`desktop/src-tauri/tauri.conf.json` 的 `img-src` 未允许 `http://127.0.0.1:8765`，照片显示 Gate **FAIL**。当前真实 profile 只有一个 LEGACY Assignment / 一个 COMPLETED Submission（两页），0 个 TemplateGroup、Exam Template、QuestionResult 和待复核项；人工复核空队列。因为没有 Teacher Workflow 样本，原生 UI 中“使用已有题册 / 分析一份新试卷”、成绩和复核结果未能展开验证。
+- 生命周期：Tauri 自动拉起 bundled Python 子进程，健康检查显示 `bundled_runtime=true`、目标 Git SHA、Python 3.12.14 arm64；8765 loopback 正常监听，8766 未监听。Cmd-Q 后 app/service 进程结束且 8765/8766 均无 listener。经 macOS LaunchServices 打开 `/Applications/Math Grader.app` 冷启动后首页与 About 正常，服务重启无端口冲突，重启前后 Assignment/Submission/Page 计数不变。用户首次 Launchpad 启动作为正常启动证据；第二次冷启动未从 Launchpad 点击，因为 CUA 无法访问 Launchpad 网格。
+- 首次 Native Gate 结论：**PARTIAL**。其图片 CSP 与正式库缺少 Teacher Workflow 样本两项 blocker 已在下方最终闭环记录中修复；P2 状态未改，未启动 P6。
 
-## 运行目录、数据边界与未完成 Gate
+## P5-L2 最终 Native Gate 闭环（2026-09-26）
+
+- **Native image rendering initially failed because Tauri `img-src` CSP did not allow the loopback image service; fixed with exact loopback origin allowlist.** 最终 `img-src` 只加入 `http://127.0.0.1:8765`；没有 wildcard、通用 `http:` 或 Capture LAN `8766`。生产 bundle verifier 检查实际嵌入 CSP 与配置一致。
+- 最终安装 App：`/Applications/Math Grader.app`；manifest / About Git SHA：`295dfede7530bb7986ade6f01008d038535bf6f8`；App/Runtime `0.1.0`；CPython `3.12.14 arm64`；OpenCV、ONNX Runtime、Paddle/PaddleOCR、MLX/mlx-vlm 可用；bundle model weights `0`。`codesign --verify --deep --strict` 通过，ad-hoc、未公证。
+- 最新原生 Tauri WebView 中 Submission Workspace 的四页合成作业真实显示，比例正常；按钮打开应用内大图预览，按钮和 Escape 均可关闭。Human Review 的图片也曾在原生界面实际显示；Review item 实际确认后最终 Student A score `4/8`。Student B 显示已确认的学生共用模板，4 页 `8/8`。
+- 原生普通老师入口打开 `P5 Native Entry Smoke` 后显示“使用已有题册”和“分析一份新试卷”；可选 `P5 Native Gate Sample Book · Native Gate Fixture`。未对 fixture 触发 Qwen 整页分析。
+- Fixture `/private/tmp/math-grader-p5-native-gate-20260926` 仅含合成数据，provider `native_gate_fixture`、`inference_performed=false`；Student A 四页/四题，Assignment temporary template 仅确认一次；B 复用模板且未做二次整页分析。Review 初始状态包含 CORRECT、INCORRECT、REVIEW_REQUIRED；复核 `11` 对标准答案 `12` 后状态变为 INCORRECT，分数更新为 4/8。Student B 8/8。已删除该临时根目录，正式 Application Support 未改。
+- Tauri 自动拉起 bundle 内 Python、`127.0.0.1:8765`；Capture 未开启时 `8766` 无 listener。Cmd-Q 后应用、service 与两个端口均退出；冷启动恢复隔离数据、四页图片和模板状态，无端口冲突。没有手动启动 Python/service/model server。
+- 自动与构建回归：Python **108 passed**（最后 Python 回归早于 UI-only 预览修复，Python 源码未改）；`compileall`、`uv lock --check`、React/TypeScript/Vite production build、坐标测试 **2 passed**、Capture URL 测试 **2 passed**、arm64 Tauri release build、bundle metadata/CSP verifier、codesign 与原生 UI gate 均通过。
+- P5-L2 = **PASS**。P2 保持 **READY_FOR_DEVICE_TEST**，真实 iPhone Safari 尚未验收；没有开始 P6，也没有产生真实学生作业准确率结论。
+
+## 运行目录、数据边界与发行限制
 
 - `.app` 仅含应用代码、Capture 页面、runtime 与 dependencies；不含任何模型权重。模型保存在 `~/Library/Application Support/MathGrader/models/<model-id>/`，用户数据位于同一 MathGrader Application Support 树的 data/images/cache/logs/config 目录。
 - Python service 由 Tauri 管理单实例、干净启动环境、工作目录、日志和退出回收。旧式系统 Python fallback 已移除。Runtime manifest 单独记录 Python、架构、依赖版本、build date、lockfile hash 与源码 SHA。
 - 发行限制：macOS 15.0+ / arm64；本地包未公证、hardened runtime 关闭。正式 Developer ID 签名、公证和其他硬件/系统组合未验证。
-- P5-L2 状态：**PARTIAL**，待 Mac 解锁后验证原生窗口及 Finder 双击启动。P2 仍为 **READY_FOR_DEVICE_TEST**，真实 iPhone Safari 尚未测试。未做真实学生照片准确率 Benchmark；未启动 P6 Benchmark / Confidence。
+- P5-L2 Native Gate：**PASS**。P2 仍为 **READY_FOR_DEVICE_TEST**，真实 iPhone Safari 尚未验收。Developer ID / notarization 发布 Gate、真实学生作业准确率 Benchmark 未完成；未启动 P6 Benchmark / Confidence。
