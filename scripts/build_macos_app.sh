@@ -28,6 +28,7 @@ UV_PROJECT_ENVIRONMENT="$BUILD_ENV" uv sync --locked --no-dev --no-install-proje
 
 cd "$DESKTOP"
 npm ci
+"$ROOT/scripts/generate_macos_icon.sh"
 MACOSX_DEPLOYMENT_TARGET=15.0 npm run desktop:build -- --target aarch64-apple-darwin
 
 if [[ ! -d "$APP" ]]; then

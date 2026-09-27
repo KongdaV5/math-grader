@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>Math Grader</title>
+  <path fill="#30694f" d="M298 88h428c116 0 210 94 210 210v428c0 116-94 210-210 210H298c-116 0-210-94-210-210V298C88 182 182 88 298 88Z"/>
+  <path fill="#f8f6ee" d="M352 168h320c47 0 84 37 84 84v520c0 47-37 84-84 84H352c-47 0-84-37-84-84V252c0-47 37-84 84-84Z"/>
+  <g fill="#2b6448">
+    <rect x="383" y="342" width="258" height="34" rx="9"/>
+    <rect x="397" y="518" width="94" height="30" rx="7"/>
+    <rect x="429" y="486" width="30" height="94" rx="7"/>
+    <rect x="559" y="509" width="119" height="28" rx="6"/>
+    <rect x="559" y="555" width="119" height="28" rx="6"/>
+    <rect x="379" y="672" width="132" height="29" rx="6"/>
+    <rect x="379" y="719" width="132" height="29" rx="6"/>
+    <path d="m575 679 27-20 43 47 43-47 27 20-51 54 51 55-27 20-43-47-43 47-27-20 51-55z"/>
+  </g>
+</svg>
