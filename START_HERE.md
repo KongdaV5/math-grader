@@ -2,11 +2,7 @@
 
 ## Current project state
 
-- P0-W1 Benchmark Foundation: **PASS**.
-- P1 Application Foundation, P3 Image Pipeline, P4 Template/Recognition, and P5-L1 Teacher Workflow: **PASS** for their defined synthetic-data integration gates.
-- P5-L2 Production Runtime Packaging is the current work package. See `docs/project/STATUS.md`, `docs/project/TASK_BOARD.md`, and the latest handoff for its final result.
-- P2 Capture Bridge remains **READY_FOR_DEVICE_TEST** until the complete real iPhone Safari acceptance flow is completed.
-- Do not infer recognition accuracy from synthetic fixtures. Final Benchmark / Confidence is a separate future work package and does not start automatically.
+Start with [Project](</Users/kongda/Documents/Obsidian/obsidian-vault/Projects/Math-Grader/Project.md>) and [canonical Status](</Users/kongda/Documents/Obsidian/obsidian-vault/Projects/Math-Grader/Status.md>). Formal phase acceptance and remaining gates are recorded in [Releases](</Users/kongda/Documents/Obsidian/obsidian-vault/Projects/Math-Grader/Releases/Phase-Gates.md>). This repository keeps technical specifications, user/build instructions, schemas and benchmark tooling; it does not maintain a second current status or task board.
 
 ## Use the app
 

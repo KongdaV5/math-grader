@@ -1,5 +1,7 @@
 # Math Grader — Local Homework Capture and Grading
 
+Project context: [Project](</Users/kongda/Documents/Obsidian/obsidian-vault/Projects/Math-Grader/Project.md>) · [canonical Status](</Users/kongda/Documents/Obsidian/obsidian-vault/Projects/Math-Grader/Status.md>) · [Releases](</Users/kongda/Documents/Obsidian/obsidian-vault/Projects/Math-Grader/Releases/Phase-Gates.md>).
+
 Math Grader is a local-first macOS desktop app for collecting photographed homework, recognizing answers, grading deterministically, and sending uncertain results to teacher review. The current product UI includes the Submission Workspace, new-exam analysis, answer-key confirmation, Assignment template reuse, model center, and human review. P0 benchmark tooling remains in the repository but is not a model-quality claim.
 
 ## Use the desktop app

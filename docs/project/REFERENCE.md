@@ -1,12 +1,12 @@
 # 本地小学数学作业拍照批改系统
 ## 项目参考手册 / Architecture & Execution Playbook
 
-**版本：v0.7**
-**日期：2026-09-26**
-**状态：当前项目主参考文档**  
+**版本：v0.8**
+**日期：2026-09-27**
+**状态：随clone保留的技术规格与设计目标；不承载当前项目状态**
 **适用对象：项目本人、Codex、Workbuddy、其他开发模型、后续维护者**
 
-> 本文档用于统一整个项目的产品逻辑、系统架构、开发顺序、模型路线、数据结构、测试标准和验收门槛。  
+> 本文档保存产品逻辑、技术架构、数据结构、测试标准和设计目标；目标不等于已实现能力。当前进度见 [canonical Status](</Users/kongda/Documents/Obsidian/obsidian-vault/Projects/Math-Grader/Status.md>)，历史Gate见 [Releases](</Users/kongda/Documents/Obsidian/obsidian-vault/Projects/Math-Grader/Releases/Phase-Gates.md>)。
 > 后续开发若与本文档发生冲突，必须先说明原因并更新本文档，不允许在代码中暗中改变核心逻辑。  
 > 本文档中的模型、阈值和性能目标属于“当前基线”，最终必须以真实 Benchmark 数据为准。
 
@@ -1133,11 +1133,9 @@ Mac 落盘
 - 手机每 2 秒轮询当前状态。只有确认完成当前学生才将 Submission 原子进入 READY / QUEUED、创建一个 job 并推进到下一位 active student；worker 不阻塞手机采集，末位完成后显示班级完成。
 - Capture surface 要求精确 Host，并校验 Origin 与 `Sec-Fetch-Site`，不启用 CORS；响应禁止缓存、禁止嗅探并设置 Referrer Policy / CSP。二维码 token 不写入服务日志。它是同一局域网内的短期采集授权，不替代设备级企业身份体系。
 
-## 21.6 P2 当前交付 Gate
+## 21.6 P2 验收证据入口
 
-- 自动化实现测试、TypeScript/Rust 检查与 Tauri build 已通过；桌面浏览器已实测 QR、预览重拍、三张图片逐张上传、删除后页码整理、刷新恢复、finish 换学生与后台队列。
-- 当前交付状态为 **READY_FOR_DEVICE_TEST**。P3-X1 按新的项目授权先行，不改变 P2 真实设备 Gate。
-- 真实 iPhone Safari 未测试。真实设备步骤见最新 handoff；未获得真实设备证据时禁止把 P2 标成 PASS。
+设备验收与实现状态只维护在 [canonical Status](</Users/kongda/Documents/Obsidian/obsidian-vault/Projects/Math-Grader/Status.md>)；本节前述接口和安全约束保留为技术要求。
 
 ---
 
@@ -2139,7 +2137,7 @@ Debug 模式保存：
 ↓
 Regression
 ↓
-阶段报告
+更新 canonical Status / 正式 Gate 写入 Releases
 ↓
 STOP
 ↓
@@ -2163,29 +2161,9 @@ STOP
 
 ---
 
-# 45. 当前开发阶段顺序
+# 45. 开发顺序约束
 
-当前正式顺序与状态为：
-
-```text
-P0-W1 Benchmark Foundation 已 PASS（评测代码永久保留）
-↓
-P1 Application Foundation 已 PASS
-↓
-P2 Capture Bridge READY_FOR_DEVICE_TEST（真实 iPhone Gate 独立保留）
-↓
-P3-X1 Product Framework & Model Runtime Foundation PASS WITH BLOCKERS
-↓
-P4-X1 Template → Crop → Real Recognition → Result Inspection PASS
-↓
-P5-L1 Teacher Workflow + Auto Exam Template + Grading Vertical Slice PASS
-↓
-P5-L2 Production Runtime Packaging PARTIAL（等待原生窗口 / Finder 验收）
-↓
-P6 Model Benchmark / Confidence 尚未开始，需后续明确工作包
-```
-
-P0-W2 不再是 P1 的前置工作；真实模型 Benchmark 保留在识别集成之后。P1 的 Mock Provider 只验证应用边界与端到端流程，不构成模型质量证据。
+应用基础、Capture、预处理、模板、识别与教师流程逐步集成；真实模型Benchmark/Confidence放在识别集成之后。P0-W2不再是P1前置，Mock与合成E2E不构成模型质量证据。当前阶段和未完成Gate只见 [canonical Status](</Users/kongda/Documents/Obsidian/obsidian-vault/Projects/Math-Grader/Status.md>)。
 
 ---
 
@@ -2284,19 +2262,9 @@ V1 必须同时满足：
 
 ---
 
-# 49. 当前下一步
+# 49. 继续开发入口
 
-P0-W1、P1、P3-X1、P4-X1、P5-L1 已按各自 Gate 完成。P5-L2 已交付可运行的独立 macOS app 和捆绑 Runtime，但原生窗口及 Finder 双击尚未验收，因此状态为 PARTIAL。P2 Capture Bridge 仍为 READY_FOR_DEVICE_TEST，真实 iPhone Safari Gate 独立保留。
-
-```text
-P5-L2：解锁 Mac 后补验原生桌面 UI / Finder 双击
-↓
-P2：真实 iPhone Safari Capture Bridge 验收
-↓
-P6 Model Benchmark / Confidence：等待明确授权与真实数据范围
-```
-
-模型 Benchmark 仍待明确授权。当前模型 smoke 与合成 E2E 证明运行链路，不提供真实作业准确率结论。
+先读 [Project](</Users/kongda/Documents/Obsidian/obsidian-vault/Projects/Math-Grader/Project.md>) 与 [canonical Status](</Users/kongda/Documents/Obsidian/obsidian-vault/Projects/Math-Grader/Status.md>)，核对实际branch/HEAD/已有修改，再按已授权工作包继续。正式验收保存branch、源码SHA、测试范围、失败修复和未完成Gate，不在此重复阶段PASS。
 
 ---
 
@@ -2347,97 +2315,6 @@ Auto Precision ≥ 99.5%
 
 # 51. 文档维护规则
 
-每次重大修改更新版本。
+技术契约发生变化时更新本文件、DECISIONS及相关API/schema/build说明，并按Git保存历史。当前状态只更新canonical Status；正式验收更新既有Releases。普通任务结果留在对话，不新建HANDOFF_LATEST、TASK_BOARD或重复阶段报告。
 
-格式：
-
-```text
-版本
-日期
-改了什么
-为什么改
-依据
-影响范围
-```
-
----
-
-## v0.2 变更摘要
-
-相对 v0.1：
-
-1. 正式引入多页 Submission；
-2. 删除“拍一页自动下一学生”的错误流程；
-3. 新增“完成该生”确认机制；
-4. 新增 iPhone → Mac Capture Bridge；
-5. 新增二维码一次连接整个班级 Session；
-6. 新增每页即时上传；
-7. 新增手机与 Mac 并行工作；
-8. 新增 Submission 状态机；
-9. Capture Bridge 提前到 P2；
-10. 新增 CaptureSession / SubmissionPage 数据结构；
-11. 增加手机掉线、上传失败、多页串学生等风险；
-12. 将 Continuity Camera 改为可选专业模式；
-13. 更新 V1 Definition of Done；
-14. 更新开发阶段顺序。
-
-## v0.3 变更摘要
-
-相对 v0.2：
-
-1. P0-W1 Benchmark Foundation 标记为已 PASS；
-2. P1 改为 Application Foundation，先建立可运行的 Tauri / React / Python / SQLite / Queue / Mock Recognition 端到端骨架；
-3. P0-W2 Model Benchmark 不再紧跟 P0-W1，模型 Benchmark 延后到 P6；
-4. 正式顺序调整为 P0-W1 → P1 → P2 Capture Bridge → P3 Image Pipeline → P4 Template System → P5 Recognition Integration → P6 Model Benchmark → Normalize / Grader / Confidence / Student History / Analytics / UI 完善；
-5. 澄清 P1 最小 UI 不代表开始完整批改 UI，也不代表真实模型达到质量 Gate。
-
----
-
-## v0.4 变更摘要
-
-相对 v0.3：
-
-1. 记录 P2 Capture Bridge 的独立 loopback/LAN 监听边界、Session token hash 与失效生命周期；
-2. 明确逐页即时上传的文件验证、元数据、内部文件名、删除重排与重复请求处理；
-3. 明确只有确认完成当前学生后才排队并推进下一学生；手机刷新恢复和队列并行；
-4. 记录当前 P2 为 PARTIAL，完整浏览器 UI 验收后才能进入真实 iPhone 测试 Gate；
-5. 保留 Python 3.9+ 系统运行时为正式发布阻塞项，不扩展到 OCR/VLM 或 P3。
-
----
-
-> v0.4 曾取代 v0.3；当前基线见下方 v0.5。
-
-## v0.5 变更摘要
-
-相对 v0.4：
-
-1. P2 更新为 `READY_FOR_DEVICE_TEST`，真实 iPhone Safari 验收仍是独立 Gate；
-2. 新授权允许从 P2 HEAD 开展 P3-X1 产品框架与模型运行基础，保持 P2 状态不变；
-3. 正式 Desktop 建立九页导航，候选模型清单与安装生命周期分离；
-4. macOS 新运行数据统一在 `Application Support/MathGrader`，旧数据使用原位兼容；
-5. 增加模板迁移与归一化答案区域，图像预处理采用保留原图的独立手动入口；
-6. 模型 Provider 延迟加载，尚未实现的真实识别路径必须明确标为未集成。
-
-> v0.5 曾取代 v0.4；当前基线见下方 v0.6。
-
-## v0.6 变更摘要：P4-X1 真实识别纵向链路
-
-1. P4-X1 从指定 P3 HEAD 独立成 `phase/p4-x1`。P2 仍是 `READY_FOR_DEVICE_TEST`，真实 iPhone Safari Gate 保留；P3-X1 历史状态不改。
-2. 正式路径为上传原图 → 异步 Image Job → processed page → 人工模板绑定及版本快照 → 多 AnswerRegion 裁图 → 本地真实 Provider → 独立 RecognitionRun → 设置中的识别实验室检查。Image Job 复用已有 SQLite 队列；手机无需等待 OpenCV 完成。
-3. Template Editor 用归一化 0..1 坐标保存拖框/重画结果，允许一题多区域，受控 answer_type。参考图与裁图位于 Application Support 管理目录。ORB/RANSAC 候选匹配只辅助人工绑定，低分拒绝推荐。
-4. PP-OCRv6 Small/Medium 共用 ONNX 检测、DB 后处理、文字裁图与官方字典 CTC 解码。Formula 使用本地 PaddleOCR `FormulaRecognition`，Qwen3-VL 4B 使用 MLX Community 4bit 权重和独立业务 prompt Strategy；8B 不安装。模型文件按 ModelManager 安装清单固定 revision，RecognitionRun 保存 revision、原文、标准化候选、confidence、耗时、状态及错误。
-5. P0 prediction adapter 可导出 JSONL，但所有输出仍为 `REVIEW_REQUIRED`；不将识别结果当 Ground Truth，不做最终判分、模型排名或低置信度自动策略。真实学生数据 Benchmark 后续另行进行。
-6. 真实模型在独立 Python 3.12 开发环境下可运行；打包 `.app` 已能启动并展示依赖健康，但仍依赖系统 Python 且未内嵌 OCR/Formula/MLX 等依赖。这是正式发布阻塞，不属于本轮 bundling 范围。旧 bundle-id 数据库仍原位读取，但若无旧模型安装清单，模型目录指向标准 MathGrader 路径；退出 app 时关闭本地服务。
-
-> v0.6 曾取代 v0.5；当前主参考基线见下方 v0.7。
-
-## v0.7 变更摘要：P5-L2 Standalone Runtime
-
-1. P5-L2 将 relocatable CPython **3.12.14 arm64** 与锁定运行依赖打入 `.app`；Release 仅调用 bundle 内解释器，不使用系统或用户 Python fallback。历史 D-030 的系统 Python 发布阻塞已由 D-032 取代。
-2. Tauri 管理 Python 服务单实例、启动/退出和服务日志；主数据与模型保持在 `~/Library/Application Support/MathGrader/`，模型不随 `.app` 打包，启动时不加载模型权重。
-3. Runtime manifest 独立于 app version，记录 Python、架构、依赖、lockfile 与源码身份。当前 app version/runtime version 为 `0.1.0`；目标为 Apple Silicon arm64、macOS 15.0+。
-4. 本机 `.app` 安装路径为 `~/Desktop/Math Grader.app`，大小约 1.3 GB；本地 ad-hoc 签名与验证通过，但未公证、hardened runtime 关闭，不能视为公开分发签名完成。
-5. Python regression 为 **103 passed**，前端/Rust/build、包内 ImagePipeline/OCR/Formula/Qwen 4B smoke、合成数据 P5 双学生真实推理 E2E 和 Capture/老师端浏览器 E2E 通过。Mac 锁屏使原生窗口交互与 Finder 双击未验收，故 P5-L2 状态为 **PARTIAL**。
-6. P2 继续为 **READY_FOR_DEVICE_TEST**；真实 iPhone Safari 尚未验收。没有进行最终 Benchmark / Confidence，也未开始 P6。
-
-> **当前版本 v0.7 取代 v0.6，作为后续开发的唯一主参考基线。历史版本摘要保留当时的阶段边界和运行环境事实。**
+v0.8仅收敛文档职责、移除已被阶段验收取代的当前状态与版本变更摘要，不改变代码或技术设计。v0.2–v0.7原文由Git历史保存。
